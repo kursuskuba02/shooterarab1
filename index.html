@@ -3,211 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>هجائية الفضاء</title>
+    <title>Hijaiyah Shooter</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.css">
     <style>
-        * {
+        body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background: #1a1a1a;
-            overflow: hidden;
-            width: 100vw;
-            height: 100vh;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
-        }
-
-        #orientation-message {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            text-align: center;
-            padding-top: 40vh;
-            z-index: 1000;
-            font-size: 24px;
-        }
-
-        #game-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            max-width: 100vw;
-            max-height: 100vh;
-            margin: auto;
-            background: #1a1a1a;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #000;
+            font-family: Arial, sans-serif;
             overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 600px;
         }
 
         #gameCanvas {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border: 2px solid #ffffff;
-            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMwMDAwMjAiLz4KPGcgZmlsbD0iI2ZmZiI+CjxjaXJjbGUgY3g9IjEwIiBjeT0iMTAiIHI9IjEiIG9wYWNpdHk9IjAuMyIvPgo8Y2lyY2xlIGN4PSI0MCIgY3k9IjIwIiByPSIxLjUiIG9wYWNpdHk9IjAuNCIvPgo8Y2lyY2xlIGN4PSI3MCIgY3k9IjUwIiByPSIxIiBvcGFjaXR5PSIwLjMiLz4KPGNpcmNsZSBjeD0iMTAwIiBjeT0iMzAiIHI9IjIiIG9wYWNpdHk9IjAuNSIvPgo8Y2lyY2xlIGN4PSIxMzAiIGN5PSI3MCIgcj0iMSIgb3BhY2l0eT0iMC4zIi8+CjxjaXJjbGUgY3g9IjE2MCIgY3k9IjQwIiByPSIxLjUiIG9wYWNpdHk9IjAuNCIvPgo8Y2lyY2xlIGN4PSIxOTAiIGN5PSI5MCIgcj0iMSIgb3BhY2l0eT0iMC4zIi8+CjxjaXJjbGUgY3g9IjIwIiBjeT0iMTIwIiByPSIyIiBvcGFjaXR5PSIwLjUiLz4KPGNpcmNsZSBjeD0iNTAiIGN5PSIxNTAiIHI9IjEiIG9wYWNpdHk9IjAuMyIvPgo8Y2lyY2xlIGN4PSI4MCIgY3k9IjE4MCIgcj0iMS41IiBvcGFjaXR5PSIwLjQiLz4KPGNpcmNsZSBjeD0iMTEwIiBjeT0iMTQwIiByPSIxIiBvcGFjaXR5PSIwLjMiLz4KPGNpcmNsZSBjeD0iMTQwIiBjeT0iMTcwIiByPSIyIiBvcGFjaXR5PSIwLjUiLz4KPGNpcmNsZSBjeD0iMTcwIiBjeT0iMTMwIiByPSIxIiBvcGFjaXR5PSIwLjMiLz4KPC9nPgo8L3N2Zz4=');
-            image-rendering: pixelated;
+            background-color: #111;
+            border: 2px solid #333;
         }
 
         #score {
             position: absolute;
             top: 10px;
             left: 10px;
-            color: white;
+            color: #fff;
             font-size: 20px;
+        }
+
+        #target {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0, 20, 0, 0.8);
+            border-radius: 50%;
+            border: 3px solid #0f0;
+            box-shadow: 0 0 15px #0f0, inset 0 0 30px rgba(0, 255, 0, 0.2);
+            overflow: hidden;
+        }
+
+        #radarCircle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 70%;
+            height: 70%;
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #radarInnerCircle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 40%;
+            height: 40%;
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #radarLine {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50%;
+            height: 2px;
+            background: linear-gradient(to right, rgba(0, 255, 0, 0.9), transparent);
+            transform-origin: left;
+            animation: rotate 4s linear infinite;
+            box-shadow: 0 0 5px #0f0;
+        }
+
+        #targetText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #0f0;
+            font-size: 32px;
+            text-shadow: 0 0 10px #0f0;
+            z-index: 2;
+            font-family: 'Arial', sans-serif;
+            font-weight: bold;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         #lives {
             position: absolute;
             top: 40px;
             left: 10px;
-            display: flex;
-            gap: 5px;
         }
 
         .heart {
-            width: 25px;
-            height: 25px;
-            position: relative;
-            animation: pulse 1.5s ease infinite;
+            color: red;
+            font-size: 24px;
+            margin-right: 5px;
         }
 
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-
-        .heart::before,
-        .heart::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            width: 12.5px;
-            height: 20px;
-            border-radius: 12.5px 12.5px 0 0;
-            background-color: #ff3366;
-        }
-
-        .heart::before {
-            left: 12.5px;
-            transform: rotate(-45deg);
-            transform-origin: 0 100%;
-        }
-
-        .heart::after {
-            left: 0;
-            transform: rotate(45deg);
-            transform-origin: 100% 100%;
-        }
-
-        #targetContainer {
+        #bossHealth {
+            display: none;
             position: absolute;
             top: 10px;
-            right: 10px;
-            width: 120px;
-            height: 120px;
-            background: radial-gradient(circle, #0f0 0%, transparent 70%);
-            border-radius: 50%;
-            border: 2px solid #0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            animation: scan 4s linear infinite;
-        }
-
-        @keyframes scan {
-            from {
-                transform: rotate(0deg);
-            }
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        #targetInner {
-            width: 80px;
-            height: 80px;
-            background: rgba(0, 255, 0, 0.1);
-            border-radius: 50%;
-            border: 1px solid #0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-        }
-
-        #targetInner::before {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 1px;
-            background: #0f0;
-            animation: scanline 2s linear infinite;
-        }
-
-        @keyframes scanline {
-            from {
-                transform: rotate(0deg);
-            }
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        #target {
-            color: #0f0;
-            font-size: 24px;
-            text-shadow: 0 0 5px #0f0;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 5px;
-            border-radius: 5px;
-            z-index: 1;
-        }
-
-        .boss-health {
-            position: absolute;
-            top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
-            border-radius: 5px;
-            color: white;
-            text-align: center;
-            z-index: 100;
-        }
-
-        .boss-health-bar {
             width: 300px;
-            height: 20px;
-            background: #333;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
             border-radius: 10px;
-            overflow: hidden;
-            margin-top: 5px;
+            border: 2px solid #0f0;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
         }
 
         #bossHealthBar {
             width: 100%;
+            height: 20px;
+            background: #300;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        #bossHealthBar div {
+            width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, #ff4444, #cc0000);
-            transition: width 0.3s ease-out;
+            background: linear-gradient(to right, #f00, #f50);
+            transition: width 0.3s ease;
         }
 
         #bossHealthText {
+            color: #0f0;
             font-size: 16px;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
             margin-bottom: 5px;
-            font-weight: bold;
-            text-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
         }
 
         #gameOver {
@@ -216,170 +162,224 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: white;
-            font-size: 48px;
+            background: linear-gradient(to bottom, rgba(0, 20, 0, 0.95), rgba(0, 0, 0, 0.95));
+            padding: 30px;
+            border-radius: 15px;
             text-align: center;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            border-radius: 10px;
-            min-width: 300px;
+            color: #fff;
+            min-width: 350px;
+            border: 2px solid #0f0;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+
+        #gameOver h2 {
+            color: #0f0;
+            font-size: 36px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        #finalScore {
+            font-size: 24px;
+            color: #0f0;
+            font-weight: bold;
         }
 
         #leaderboard {
             margin-top: 20px;
-            color: white;
-            font-size: 18px;
-            text-align: center;
+            max-height: 200px;
+            overflow-y: auto;
+            border-top: 1px solid #333;
+            padding-top: 10px;
         }
 
-        #leaderboardForm {
-            margin-top: 20px;
-            font-size: 24px;
+        #leaderboard h3 {
+            color: #0f0;
+            margin-bottom: 10px;
         }
 
-        #playerName {
-            padding: 10px;
-            font-size: 18px;
-            margin: 10px 0;
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 10px;
+            background: rgba(0, 255, 0, 0.1);
+            margin: 2px 0;
+            border-radius: 3px;
+        }
+
+        #playerNameInput {
+            margin: 15px 0;
+            padding: 8px;
             width: 200px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #0f0;
+            color: #fff;
+            border-radius: 4px;
         }
 
-        .gameButton {
-            padding: 10px 20px;
-            font-size: 18px;
-            margin: 10px;
-            background: #4CAF50;
-            color: white;
+        #submitScore, #restartGame {
+            padding: 8px 20px;
+            margin: 5px;
+            background: #0f0;
+            color: #000;
             border: none;
-            border-radius: 5px;
+            border-radius: 4px;
             cursor: pointer;
+            transition: background 0.3s;
         }
 
-        .gameButton:hover {
-            background: #45a049;
+        #submitScore:hover, #restartGame:hover {
+            background: #00cc00;
         }
 
-        #startButton {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-
-        /* Mobile Controls */
-        .mobile-controls {
+        #mobileControls {
             display: none;
-            position: fixed;
+            position: absolute;
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 150px;
-            z-index: 1000;
+            height: 200px;
             pointer-events: none;
         }
 
-        .joystick-area {
+        #joystickZone {
             position: absolute;
-            left: 30px;
-            bottom: 30px;
-            width: 120px;
-            height: 120px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            bottom: 20px;
+            left: 20px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px solid rgba(0, 255, 0, 0.5);
             border-radius: 50%;
             pointer-events: auto;
         }
 
-        .joystick {
+        #shootButton {
             position: absolute;
-            left: 35px;
-            bottom: 35px;
-            width: 50px;
-            height: 50px;
-            background: rgba(255, 255, 255, 0.4);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        .shoot-button {
-            position: absolute;
-            right: 30px;
-            bottom: 30px;
+            bottom: 40px;
+            right: 40px;
             width: 80px;
             height: 80px;
-            background: rgba(255, 0, 0, 0.2);
-            border: 2px solid rgba(255, 0, 0, 0.4);
+            background: rgba(0, 255, 0, 0.2);
+            border: 3px solid #0f0;
             border-radius: 50%;
+            color: #0f0;
+            font-size: 24px;
+            cursor: pointer;
             pointer-events: auto;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 24px;
-            text-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            transition: all 0.2s ease;
         }
 
-        .shoot-button:active {
-            background: rgba(255, 0, 0, 0.4);
+        #shootButton:active {
+            background: rgba(0, 255, 0, 0.4);
             transform: scale(0.95);
         }
 
-        @media (orientation: portrait) and (max-width: 768px) {
-            #orientation-message {
+        .nipple {
+            opacity: 0.9 !important;
+        }
+
+        .front {
+            background: rgba(0, 255, 0, 0.8) !important;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5) !important;
+        }
+
+        .back {
+            background: rgba(0, 255, 0, 0.2) !important;
+            border: 2px solid rgba(0, 255, 0, 0.5) !important;
+        }
+
+        @media (max-width: 800px) {
+            #gameContainer {
+                width: 100vw;
+                height: 100vh;
+            }
+
+            #gameCanvas {
+                width: 100%;
+                height: 100%;
+            }
+
+            body {
+                background-color: #000;
+            }
+
+            #mobileControls {
                 display: block;
             }
         }
 
-        @media (max-width: 768px) {
-            .mobile-controls {
-                display: block;
+        .orientation-message {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            color: #fff;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            text-align: center;
+            padding: 20px;
+        }
+
+        @media (orientation: portrait) and (max-width: 800px) {
+            .orientation-message {
+                display: flex;
+            }
+            #gameContainer {
+                display: none;
             }
         }
     </style>
 </head>
 <body>
-    <div id="orientation-message">
-        يرجى دوران جهازك إلى وضع الأفقي للحصول على أفضل تجربة
-        <br>
-        <span style="font-size: 40px;">📱⟳</span>
+    <div class="orientation-message">
+        Please rotate your device to landscape mode to play the game
     </div>
-    <div id="game-container">
+    <div id="gameContainer">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
-        <div id="score">النتيجة: 0</div>
+        <div id="score">Score: 0</div>
+        <div id="target">
+            <div id="radarCircle"></div>
+            <div id="radarInnerCircle"></div>
+            <div id="radarLine"></div>
+            <div id="targetText">-</div>
+        </div>
         <div id="lives">
-            <div class="heart"></div>
-            <div class="heart"></div>
-            <div class="heart"></div>
+            <span class="heart">❤️</span>
+            <span class="heart">❤️</span>
+            <span class="heart">❤️</span>
         </div>
-        <div id="bossHealth" class="boss-health" style="display: none;">
-            <div id="bossHealthText">صحة الزعيم: 5/5</div>
-            <div class="boss-health-bar">
-                <div id="bossHealthBar"></div>
-            </div>
-        </div>
-        <div id="targetContainer">
-            <div id="targetInner">
-                <div id="target"></div>
+        <div id="bossHealth">
+            <div id="bossHealthText">Boss HP: 5/5</div>
+            <div id="bossHealthBar">
+                <div style="width: 100%;"></div>
             </div>
         </div>
         <div id="gameOver">
-            انتهت اللعبة!
-            <div id="leaderboard">أعلى النتائج:<br></div>
-            <div id="leaderboardForm">
-                <input type="text" id="playerName" placeholder="أدخل اسمك" maxlength="15">
-                <br>
-                <button class="gameButton" id="submitScore">إرسال النتيجة</button>
-                <button class="gameButton" id="restartGame">لعبة جديدة</button>
+            <h2>Game Over</h2>
+            <p>Your Score: <span id="finalScore">0</span></p>
+            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="15">
+            <button id="submitScore">Submit Score</button>
+            <button id="restartGame">New Game</button>
+            <div id="leaderboard">
+                <h3>Top Scores</h3>
+                <div id="leaderboardEntries"></div>
             </div>
         </div>
-        <button id="startButton" class="gameButton">بدء اللعبة</button>
-    </div>
-    <div class="mobile-controls">
-        <div class="joystick-area">
-            <div class="joystick"></div>
+        <div id="mobileControls">
+            <div id="joystickZone"></div>
+            <button id="shootButton">🔫</button>
         </div>
-        <div class="shoot-button">🔥</div>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <script src="game.js"></script>
 </body>
 </html>

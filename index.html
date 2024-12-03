@@ -272,67 +272,59 @@
 
         #joystickZone {
             position: fixed;
-            bottom: 100px;
-            left: 50px;
-            width: 120px;
-            height: 120px;
+            bottom: 20px;
+            left: 20px;
+            width: 150px;
+            height: 150px;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 50%;
+            display: none;
         }
 
         #shootButton {
             position: fixed;
-            bottom: 100px;
-            right: 50px;
-            width: 80px;
-            height: 80px;
+            bottom: 40px;
+            right: 40px;
+            width: 100px;
+            height: 100px;
             background: rgba(255, 255, 255, 0.2);
-            border: none;
+            border: 2px solid rgba(255, 255, 255, 0.4);
             border-radius: 50%;
             color: white;
-            font-size: 24px;
+            font-size: 32px;
             z-index: 1000;
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
         }
 
-        #fullscreenButton {
+        /* Zoom controls styling */
+        .zoom-controls {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            padding: 15px 30px;
-            background: rgba(0, 255, 0, 0.2);
-            border: 2px solid #0f0;
-            color: #0f0;
-            font-size: 18px;
-            border-radius: 10px;
-            cursor: pointer;
-            z-index: 2000;
-            text-shadow: 0 0 5px #0f0;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            top: 20px;
+            right: 20px;
             display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
         }
 
-        #fullscreenButton:hover {
-            background: rgba(0, 255, 0, 0.3);
-        }
-
-        #startScreen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: none;
-            justify-content: center;
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            display: flex;
             align-items: center;
-            z-index: 1500;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
         }
 
         @media (orientation: portrait) {
@@ -345,6 +337,12 @@
         }
 
         @media (max-width: 768px) {
+            .zoom-controls {
+                display: flex;
+            }
+            #joystickZone, #shootButton {
+                display: flex;
+            }
             #fullscreenButton {
                 display: block;
             }
@@ -413,6 +411,11 @@
                 <div id="leaderboardEntries"></div>
             </div>
         </div>
+    </div>
+    <div id="shootButton">⚔️</div>
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomInBtn">+</button>
+        <button class="zoom-btn" id="zoomOutBtn">-</button>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <script src="game.js"></script>

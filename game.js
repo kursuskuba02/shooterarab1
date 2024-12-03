@@ -33,9 +33,18 @@ const hijaiyahLetters = [
 
 class Game {
     constructor() {
-        this.width = 800;
-        this.height = 600;
+        // Get window dimensions for mobile
+        if (this.isMobile) {
+            this.width = window.innerWidth;
+            this.height = window.innerHeight;
+        } else {
+            this.width = 800;
+            this.height = 600;
+        }
+        
         this.canvas = document.getElementById('gameCanvas');
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
         this.ctx = this.canvas.getContext('2d');
         this.scoreElement = document.getElementById('score');
         this.targetElement = document.getElementById('targetText');
@@ -85,6 +94,20 @@ class Game {
         // Detect if mobile device
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+        // Add mouse position tracking with interpolation
+        this.mousePosition = {
+            x: this.width / 2,
+            y: this.height / 2
+        };
+        
+        this.playerTarget = {
+            x: this.width / 2,
+            y: this.height / 2
+        };
+
+        // Movement smoothing factor (0 = no smoothing, 1 = maximum smoothing)
+        this.smoothing = 0.85;
+
         // Event listeners
         this.submitScoreButton.addEventListener('click', () => this.submitScore());
         document.getElementById('restartGame').addEventListener('click', () => {
@@ -110,7 +133,7 @@ class Game {
         if (!this.gameOver) {
             this.update();
             this.draw();
-            requestAnimationFrame(() => this.gameLoop());
+            this.animationFrame = requestAnimationFrame(() => this.gameLoop());
         }
     }
 
@@ -190,31 +213,16 @@ class Game {
         }
     }
 
-    updatePlayerPosition() {
-        if (this.isMobile) {
-            // Update position based on joystick
-            this.player.x += this.player.dx;
-            this.player.y += this.player.dy;
-
-            // Keep player within bounds
-            if (this.player.x < 0) this.player.x = 0;
-            if (this.player.x > this.width - this.player.width) {
-                this.player.x = this.width - this.player.width;
-            }
-            if (this.player.y < 0) this.player.y = 0;
-            if (this.player.y > this.height - this.player.height) {
-                this.player.y = this.height - this.player.height;
-            }
-        }
-    }
-
     update() {
-        if (this.gameOver) return;
+        if (this.gameOver) {
+            // Clean up boss and bullets when game is over
+            this.boss = null;
+            this.bossBullets = [];
+            this.bossHealthElement.style.display = 'none';
+            return;
+        }
 
         this.updateDifficulty();
-
-        // Update player position
-        this.updatePlayerPosition();
 
         const currentTime = Date.now();
 
@@ -273,6 +281,9 @@ class Game {
 
         // Update stars
         this.updateStars();
+
+        // Update player position
+        this.updatePlayerPosition();
     }
 
     updateLetters() {
@@ -283,6 +294,15 @@ class Game {
 
             // Remove letters that are off screen
             if (letter.y > this.height) {
+                // If the escaped letter was the target, reduce player's life
+                if (letter.letter === this.currentTarget) {
+                    this.player.lives--;
+                    if (this.player.lives <= 0) {
+                        this.gameOver = true;
+                        this.gameOverElement.style.display = 'block';
+                    }
+                    this.selectNewTarget();
+                }
                 this.letters.splice(i, 1);
                 continue;
             }
@@ -607,50 +627,65 @@ class Game {
     }
 
     submitScore() {
-        const playerName = this.playerNameInput.value.trim();
-        if (!playerName) {
-            alert('Please enter your name!');
-            return;
-        }
-
-        const newScore = {
+        const playerName = this.playerNameInput.value.trim() || 'Anonymous';
+        let highScores = JSON.parse(localStorage.getItem('highScores') || '[]');
+        
+        // Add new score
+        highScores.push({
             name: playerName,
-            score: this.score,
-            date: new Date().toISOString()
-        };
-
-        this.highScores.push(newScore);
-        this.highScores.sort((a, b) => b.score - a.score);
-        this.highScores = this.highScores.slice(0, 10); // Keep only top 10
-        localStorage.setItem('highScores', JSON.stringify(this.highScores));
+            score: this.score
+        });
+        
+        // Sort and keep top scores
+        highScores.sort((a, b) => b.score - a.score);
+        highScores = highScores.slice(0, 10);
+        
+        // Save to localStorage
+        localStorage.setItem('highScores', JSON.stringify(highScores));
+        
+        // Update display
         this.updateLeaderboard();
     }
 
     updateLeaderboard() {
-        this.leaderboardEntries.innerHTML = '';
-        this.highScores.forEach((entry, index) => {
-            const div = document.createElement('div');
-            div.className = 'leaderboard-entry';
-            div.innerHTML = `
-                <span>${index + 1}. ${entry.name}</span>
-                <span>${entry.score}</span>
-            `;
-            this.leaderboardEntries.appendChild(div);
-        });
+        // Get existing scores
+        let highScores = JSON.parse(localStorage.getItem('highScores') || '[]');
+        
+        // Update leaderboard display
+        const leaderboardEntries = document.getElementById('leaderboardEntries');
+        if (leaderboardEntries) {
+            leaderboardEntries.innerHTML = '';
+            highScores.sort((a, b) => b.score - a.score).slice(0, 10).forEach(entry => {
+                const div = document.createElement('div');
+                div.className = 'leaderboard-entry';
+                div.innerHTML = `<span>${entry.name}</span><span>${entry.score}</span>`;
+                leaderboardEntries.appendChild(div);
+            });
+        }
     }
 
     endGame() {
         this.gameOver = true;
-        const finalScoreElement = document.getElementById('finalScore');
-        finalScoreElement.textContent = this.score;
-        this.gameOverElement.style.display = 'block';
-        this.updateLeaderboard();
-
-        // Disable controls
-        if (this.isMobile) {
-            document.getElementById('mobileControls').style.opacity = '0.3';
-            document.getElementById('mobileControls').style.pointerEvents = 'none';
+        
+        // Stop the game loop
+        cancelAnimationFrame(this.animationFrame);
+        
+        // Clean up boss-related elements
+        if (this.boss) {
+            this.boss = null;
+            this.bossBullets = [];
+            this.bossHealthElement.style.display = 'none';
         }
+
+        // Update and show game over screen
+        const finalScoreElement = document.getElementById('finalScore');
+        if (finalScoreElement) {
+            finalScoreElement.textContent = this.score;
+        }
+        
+        // Update leaderboard before showing game over screen
+        this.updateLeaderboard();
+        this.gameOverElement.style.display = 'block';
     }
 
     selectNewTarget() {
@@ -671,10 +706,12 @@ class Game {
 
         // Update target display with uppercase text
         const targetElement = document.getElementById('targetText');
-        targetElement.innerHTML = `<div style="text-align: center;">
-            <div style="color: #00ffff; font-size: 14px; margin-bottom: 5px; text-transform: uppercase;">TARGET</div>
-            <div style="color: white; font-size: 18px; text-transform: uppercase;">${this.currentTarget.trans}</div>
-        </div>`;
+        if (targetElement) {
+            targetElement.innerHTML = `<div style="text-align: center;">
+                <div style="color: #00ffff; font-size: 14px; margin-bottom: 5px; text-transform: uppercase;">TARGET</div>
+                <div style="color: white; font-size: 18px; text-transform: uppercase;">${this.currentTarget.trans}</div>
+            </div>`;
+        }
     }
 
     shoot() {
@@ -693,40 +730,53 @@ class Game {
     }
 
     spawnLetter(forceTarget = false) {
-        const letter = forceTarget ? this.currentTarget : hijaiyahLetters[Math.floor(Math.random() * hijaiyahLetters.length)];
+        // Get currently displayed letters
+        const displayedLetters = this.letters.map(l => l.letter.arabic);
+        
+        // Filter out letters that are already on screen
+        const availableLetters = hijaiyahLetters.filter(l => !displayedLetters.includes(l.arabic));
+        
+        // If no available letters, skip spawning
+        if (availableLetters.length === 0) return;
 
-        // Find a suitable spawn position that doesn't overlap with existing letters
-        let x, overlapping;
-        let attempts = 0;
-        const maxAttempts = 10; // Limit spawn attempts to prevent infinite loop
-
-        do {
-            overlapping = false;
-            x = Math.random() * (this.width - this.bubbleSize);
-
-            // Check for overlap with existing letters
-            for (const existingLetter of this.letters) {
-                const distance = Math.abs(x - existingLetter.x);
-                if (distance < this.bubbleSize + this.bubbleSpacing) {
-                    overlapping = true;
-                    break;
-                }
+        // If forcing target, use current target if not on screen, otherwise pick new target
+        let selectedLetter;
+        if (forceTarget) {
+            if (this.currentTarget && !displayedLetters.includes(this.currentTarget.arabic)) {
+                selectedLetter = this.currentTarget;
+            } else {
+                const randomIndex = Math.floor(Math.random() * availableLetters.length);
+                selectedLetter = availableLetters[randomIndex];
+                this.currentTarget = selectedLetter;
+                this.updateTargetDisplay();
             }
-            attempts++;
-            if (attempts >= maxAttempts) break;
-        } while (overlapping);
+        } else {
+            // For non-target letters, randomly select from available letters
+            const randomIndex = Math.floor(Math.random() * availableLetters.length);
+            selectedLetter = availableLetters[randomIndex];
+        }
 
-        // Generate random speed between min and max
-        const speed = this.letterSpeedMin + Math.random() * (this.letterSpeedMax - this.letterSpeedMin);
-
-        this.letters.push({
-            x: x,
-            y: -50,
+        // Create new letter object
+        const letterObj = {
+            letter: selectedLetter,
+            x: Math.random() * (this.width - this.bubbleSize),
+            y: -this.bubbleSize,
             width: this.bubbleSize,
             height: this.bubbleSize,
-            letter: letter,
-            speed: speed // Individual speed for each letter
-        });
+            speed: Math.random() * (this.letterSpeedMax - this.letterSpeedMin) + this.letterSpeedMin
+        };
+
+        this.letters.push(letterObj);
+    }
+
+    updateTargetDisplay() {
+        const targetElement = document.getElementById('targetText');
+        if (targetElement && this.currentTarget) {
+            targetElement.innerHTML = `<div style="text-align: center;">
+                <div style="color: #00ffff; font-size: 14px; margin-bottom: 5px; text-transform: uppercase;">TARGET</div>
+                <div style="color: white; font-size: 18px; text-transform: uppercase;">${this.currentTarget.trans}</div>
+            </div>`;
+        }
     }
 
     spawnHealthOrb() {
@@ -758,117 +808,92 @@ class Game {
     }
 
     initControls() {
-        if (this.isMobile) {
-            // Setup mobile controls
-            const joystickZone = document.getElementById('joystickZone');
-            const shootButton = document.getElementById('shootButton');
+        // Mouse movement
+        const updatePlayerPosition = (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            
+            // Get canvas scale
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+            
+            // Update target position
+            this.playerTarget.x = (e.clientX - rect.left) * scaleX;
+            this.playerTarget.y = (e.clientY - rect.top) * scaleY;
+        };
 
-            if (joystickZone && shootButton) {
-                // Create joystick
-                this.joystick = nipplejs.create({
-                    zone: joystickZone,
-                    mode: 'static',
-                    position: { left: '60px', bottom: '60px' },
-                    color: 'white',
-                    size: 120
-                });
+        // Add both mousemove and pointermove for better response
+        this.canvas.addEventListener('mousemove', updatePlayerPosition, { passive: true });
+        this.canvas.addEventListener('pointermove', updatePlayerPosition, { passive: true });
 
-                // Joystick events
-                this.joystick.on('move', (evt, data) => {
-                    const angle = data.angle.radian;
-                    const force = Math.min(data.force, 1);
-                    this.player.dx = Math.cos(angle) * this.player.speed * force;
-                    this.player.dy = Math.sin(angle) * this.player.speed * force;
-                    this.player.angle = angle + Math.PI/2;
-                });
+        // Shooting with mouse click
+        this.canvas.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.shoot();
+        });
+    }
 
-                this.joystick.on('end', () => {
-                    this.player.dx = 0;
-                    this.player.dy = 0;
-                });
+    updatePlayerPosition() {
+        // Interpolate between current and target position
+        this.mousePosition.x = this.mousePosition.x + (this.playerTarget.x - this.mousePosition.x) * (1 - this.smoothing);
+        this.mousePosition.y = this.mousePosition.y + (this.playerTarget.y - this.mousePosition.y) * (1 - this.smoothing);
 
-                // Shoot button event
-                shootButton.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.shoot();
-                });
-            }
-        } else {
-            // PC controls
-            this.canvas.addEventListener('mousemove', (e) => {
-                const rect = this.canvas.getBoundingClientRect();
-                this.mouseX = e.clientX - rect.left;
-                this.mouseY = e.clientY - rect.top;
+        // Update player position to follow interpolated mouse position
+        this.player.x = this.mousePosition.x - (this.player.width / 2);
+        this.player.y = this.mousePosition.y - (this.player.height / 2);
 
-                // Update player position instantly
-                this.player.x = this.mouseX - this.player.width / 2;
-                this.player.y = this.mouseY - this.player.height / 2;
-
-                // Keep player within canvas bounds
-                if (this.player.x < 0) this.player.x = 0;
-                if (this.player.x > this.width - this.player.width) {
-                    this.player.x = this.width - this.player.width;
-                }
-                if (this.player.y < 0) this.player.y = 0;
-                if (this.player.y > this.height - this.player.height) {
-                    this.player.y = this.height - this.player.height;
-                }
-
-                // Calculate angle between player and cursor
-                const dx = this.mouseX - (this.player.x + this.player.width / 2);
-                const dy = this.mouseY - (this.player.y + this.player.height / 2);
-                this.player.angle = Math.atan2(dy, dx) + Math.PI / 2;
-            });
-
-            this.canvas.addEventListener('mousedown', (e) => {
-                if (e.button === 0) { // Left click
-                    this.shoot();
-                }
-            });
-        }
-
-        // Add restart game event
-        const restartButton = document.getElementById('restartGame');
-        if (restartButton) {
-            restartButton.addEventListener('click', () => this.startGame());
-        }
+        // Keep player within canvas bounds
+        this.player.x = Math.max(0, Math.min(this.width - this.player.width, this.player.x));
+        this.player.y = Math.max(0, Math.min(this.height - this.player.height, this.player.y));
     }
 
     initJoystick() {
-        // Setup mobile controls
-        const joystickZone = document.getElementById('joystickZone');
-        const shootButton = document.getElementById('shootButton');
+        const options = {
+            zone: document.getElementById('joystickZone'),
+            mode: 'static',
+            position: { left: '50%', bottom: '20%' },
+            color: 'white',
+            size: 120,
+            restJoystick: true
+        };
 
-        if (joystickZone && shootButton) {
-            // Create joystick
-            this.joystick = nipplejs.create({
-                zone: joystickZone,
-                mode: 'static',
-                position: { left: '60px', bottom: '60px' },
-                color: 'white',
-                size: 120
-            });
+        this.joystick = nipplejs.create(options);
 
-            // Joystick events
-            this.joystick.on('move', (evt, data) => {
-                const angle = data.angle.radian;
-                const force = Math.min(data.force, 1);
-                this.player.dx = Math.cos(angle) * this.player.speed * force;
-                this.player.dy = Math.sin(angle) * this.player.speed * force;
-                this.player.angle = angle + Math.PI/2;
-            });
+        this.joystick.on('move', (evt, data) => {
+            const speed = 5;
+            if (data.vector.y) {
+                this.player.dy = -data.vector.y * speed;
+            }
+            if (data.vector.x) {
+                this.player.dx = data.vector.x * speed;
+            }
+        });
 
-            this.joystick.on('end', () => {
-                this.player.dx = 0;
-                this.player.dy = 0;
-            });
+        this.joystick.on('end', () => {
+            this.player.dx = 0;
+            this.player.dy = 0;
+        });
 
-            // Shoot button event
-            shootButton.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                this.shoot();
-            });
-        }
+        // Add shoot button for mobile
+        const shootButton = document.createElement('div');
+        shootButton.id = 'shootButton';
+        shootButton.style.position = 'fixed';
+        shootButton.style.right = '20px';
+        shootButton.style.bottom = '20%';
+        shootButton.style.width = '60px';
+        shootButton.style.height = '60px';
+        shootButton.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+        shootButton.style.borderRadius = '50%';
+        shootButton.style.display = 'flex';
+        shootButton.style.justifyContent = 'center';
+        shootButton.style.alignItems = 'center';
+        shootButton.style.fontSize = '24px';
+        shootButton.innerHTML = '🎯';
+        document.body.appendChild(shootButton);
+
+        shootButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.shoot();
+        });
     }
 
     resetGame() {

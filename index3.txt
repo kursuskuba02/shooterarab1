@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hijaiyah Shooter</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 600px;
+        }
+
+        #gameCanvas {
+            background-color: #111;
+            border: 2px solid #333;
+        }
+
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            font-size: 20px;
+        }
+
+        #target {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0, 20, 0, 0.8);
+            border-radius: 50%;
+            border: 3px solid #0f0;
+            box-shadow: 0 0 15px #0f0, inset 0 0 30px rgba(0, 255, 0, 0.2);
+            overflow: hidden;
+        }
+
+        #radarCircle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 70%;
+            height: 70%;
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #radarInnerCircle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 40%;
+            height: 40%;
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #radarLine {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50%;
+            height: 2px;
+            background: linear-gradient(to right, rgba(0, 255, 0, 0.9), transparent);
+            transform-origin: left;
+            animation: rotate 4s linear infinite;
+            box-shadow: 0 0 5px #0f0;
+        }
+
+        #targetText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #0f0;
+            font-size: 32px;
+            text-shadow: 0 0 10px #0f0;
+            z-index: 2;
+            font-family: 'Arial', sans-serif;
+            font-weight: bold;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #lives {
+            position: absolute;
+            top: 40px;
+            left: 10px;
+        }
+
+        .heart {
+            color: red;
+            font-size: 24px;
+            margin-right: 5px;
+        }
+
+        #bossHealth {
+            display: none;
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 10px;
+            border: 2px solid #0f0;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        #bossHealthBar {
+            width: 100%;
+            height: 20px;
+            background: #300;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        #bossHealthBar div {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, #f00, #f50);
+            transition: width 0.3s ease;
+        }
+
+        #bossHealthText {
+            color: #0f0;
+            font-size: 16px;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+            margin-bottom: 5px;
+        }
+
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(to bottom, rgba(0, 20, 0, 0.95), rgba(0, 0, 0, 0.95));
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            color: #fff;
+            min-width: 350px;
+            border: 2px solid #0f0;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+
+        #gameOver h2 {
+            color: #0f0;
+            font-size: 36px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        #finalScore {
+            font-size: 24px;
+            color: #0f0;
+            font-weight: bold;
+        }
+
+        #leaderboard {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            border-top: 1px solid #333;
+            padding-top: 10px;
+        }
+
+        #leaderboard h3 {
+            color: #0f0;
+            margin-bottom: 10px;
+        }
+
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 10px;
+            background: rgba(0, 255, 0, 0.1);
+            margin: 2px 0;
+            border-radius: 3px;
+        }
+
+        #playerNameInput {
+            margin: 15px 0;
+            padding: 8px;
+            width: 200px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #0f0;
+            color: #fff;
+            border-radius: 4px;
+        }
+
+        #submitScore, #restartGame {
+            padding: 8px 20px;
+            margin: 5px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #submitScore:hover, #restartGame:hover {
+            background: #00cc00;
+        }
+
+        #mobileControls {
+            display: none;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 200px;
+            pointer-events: none;
+        }
+
+        #joystickZone {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 50%;
+            pointer-events: auto;
+        }
+
+        #shootButton {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 255, 0, 0.2);
+            border: 3px solid #0f0;
+            border-radius: 50%;
+            color: #0f0;
+            font-size: 24px;
+            cursor: pointer;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        #shootButton:active {
+            background: rgba(0, 255, 0, 0.4);
+            transform: scale(0.95);
+        }
+
+        .nipple {
+            opacity: 0.9 !important;
+        }
+
+        .front {
+            background: rgba(0, 255, 0, 0.8) !important;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5) !important;
+        }
+
+        .back {
+            background: rgba(0, 255, 0, 0.2) !important;
+            border: 2px solid rgba(0, 255, 0, 0.5) !important;
+        }
+
+        @media (max-width: 800px) {
+            #gameContainer {
+                width: 100vw;
+                height: 100vh;
+            }
+
+            #gameCanvas {
+                width: 100%;
+                height: 100%;
+            }
+
+            body {
+                background-color: #000;
+            }
+
+            #mobileControls {
+                display: block;
+            }
+        }
+
+        .orientation-message {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            color: #fff;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            text-align: center;
+            padding: 20px;
+        }
+
+        @media (orientation: portrait) and (max-width: 800px) {
+            .orientation-message {
+                display: flex;
+            }
+            #gameContainer {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="orientation-message">
+        Please rotate your device to landscape mode to play the game
+    </div>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="score">Score: 0</div>
+        <div id="target">
+            <div id="radarCircle"></div>
+            <div id="radarInnerCircle"></div>
+            <div id="radarLine"></div>
+            <div id="targetText">-</div>
+        </div>
+        <div id="lives">
+            <span class="heart">❤️</span>
+            <span class="heart">❤️</span>
+            <span class="heart">❤️</span>
+        </div>
+        <div id="bossHealth">
+            <div id="bossHealthText">Boss HP: 5/5</div>
+            <div id="bossHealthBar">
+                <div style="width: 100%;"></div>
+            </div>
+        </div>
+        <div id="gameOver">
+            <h2>Game Over</h2>
+            <p>Your Score: <span id="finalScore">0</span></p>
+            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="15">
+            <button id="submitScore">Submit Score</button>
+            <button id="restartGame">New Game</button>
+            <div id="leaderboard">
+                <h3>Top Scores</h3>
+                <div id="leaderboardEntries"></div>
+            </div>
+        </div>
+        <div id="mobileControls">
+            <div id="joystickZone"></div>
+            <button id="shootButton">🔫</button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

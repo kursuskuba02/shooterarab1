@@ -20,13 +20,15 @@
 
         #gameContainer {
             position: relative;
-            width: 800px;
-            height: 600px;
+            width: 100%;
+            height: 100vh;
         }
 
         #gameCanvas {
             background-color: #111;
             border: 2px solid #333;
+            width: 100%;
+            height: 100%;
         }
 
         #score {
@@ -35,19 +37,21 @@
             left: 10px;
             color: #fff;
             font-size: 20px;
+            z-index: 100;
         }
 
         #target {
             position: absolute;
             top: 10px;
             right: 10px;
-            width: 150px;
-            height: 150px;
+            width: 100px;
+            height: 100px;
             background: rgba(0, 20, 0, 0.8);
             border-radius: 50%;
             border: 3px solid #0f0;
             box-shadow: 0 0 15px #0f0, inset 0 0 30px rgba(0, 255, 0, 0.2);
             overflow: hidden;
+            z-index: 100;
         }
 
         #radarCircle {
@@ -232,84 +236,34 @@
             background: #00cc00;
         }
 
-        #mobileControls {
-            display: none;
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 200px;
-            pointer-events: none;
-        }
-
         #joystickZone {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            width: 150px;
-            height: 150px;
-            background: rgba(0, 255, 0, 0.1);
-            border: 2px solid rgba(0, 255, 0, 0.5);
-            border-radius: 50%;
-            pointer-events: auto;
+            position: fixed;
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 120px;
+            z-index: 1000;
         }
 
-        #shootButton {
-            position: absolute;
-            bottom: 40px;
-            right: 40px;
-            width: 80px;
-            height: 80px;
-            background: rgba(0, 255, 0, 0.2);
-            border: 3px solid #0f0;
-            border-radius: 50%;
-            color: #0f0;
-            font-size: 24px;
-            cursor: pointer;
-            pointer-events: auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
-            transition: all 0.2s ease;
-        }
-
-        #shootButton:active {
-            background: rgba(0, 255, 0, 0.4);
-            transform: scale(0.95);
-        }
-
-        .nipple {
-            opacity: 0.9 !important;
-        }
-
-        .front {
-            background: rgba(0, 255, 0, 0.8) !important;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5) !important;
-        }
-
-        .back {
-            background: rgba(0, 255, 0, 0.2) !important;
-            border: 2px solid rgba(0, 255, 0, 0.5) !important;
-        }
-
-        @media (max-width: 800px) {
+        /* Mobile-specific styles */
+        @media (max-width: 768px) {
             #gameContainer {
                 width: 100vw;
                 height: 100vh;
             }
 
-            #gameCanvas {
-                width: 100%;
-                height: 100%;
+            #target {
+                width: 80px;
+                height: 80px;
             }
 
-            body {
-                background-color: #000;
+            #targetText {
+                font-size: 24px;
             }
 
-            #mobileControls {
-                display: block;
+            #score {
+                font-size: 16px;
             }
         }
 
@@ -344,13 +298,13 @@
         Please rotate your device to landscape mode to play the game
     </div>
     <div id="gameContainer">
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <canvas id="gameCanvas"></canvas>
         <div id="score">Score: 0</div>
         <div id="target">
             <div id="radarCircle"></div>
             <div id="radarInnerCircle"></div>
             <div id="radarLine"></div>
-            <div id="targetText">-</div>
+            <div id="targetText"></div>
         </div>
         <div id="lives">
             <span class="heart">❤️</span>
@@ -363,20 +317,17 @@
                 <div style="width: 100%;"></div>
             </div>
         </div>
-        <div id="gameOver">
-            <h2>Game Over</h2>
+        <div id="joystickZone"></div>
+        <div id="gameOver" style="display: none;">
+            <h2>Game Over!</h2>
             <p>Your Score: <span id="finalScore">0</span></p>
-            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="15">
+            <input type="text" id="playerNameInput" placeholder="Enter your name">
             <button id="submitScore">Submit Score</button>
-            <button id="restartGame">New Game</button>
+            <button id="restartGame">Play Again</button>
             <div id="leaderboard">
-                <h3>Top Scores</h3>
+                <h3>Leaderboard</h3>
                 <div id="leaderboardEntries"></div>
             </div>
-        </div>
-        <div id="mobileControls">
-            <div id="joystickZone"></div>
-            <button id="shootButton">🔫</button>
         </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>

@@ -33,6 +33,8 @@ const hijaiyahLetters = [
 
 class Game {
     constructor() {
+        this.width = 800;
+        this.height = 600;
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.scoreElement = document.getElementById('score');
@@ -46,158 +48,93 @@ class Game {
         this.leaderboardEntries = document.getElementById('leaderboardEntries');
         this.highScores = JSON.parse(localStorage.getItem('highScores') || '[]');
         
-        this.submitScoreButton.addEventListener('click', () => this.submitScore());
-        document.getElementById('restartGame').addEventListener('click', () => {
-            this.resetGame();
-            this.startGame();
-        });
-
-        // Detect if mobile device
-        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        // Game state
+        this.score = 0;
+        this.letters = [];
+        this.bullets = [];
+        this.healthOrbs = [];
+        this.spikeOrbs = [];
+        this.bossBullets = [];
+        this.boss = null;
+        this.gameOver = false;
+        this.targetSpawnInterval = 2000;
+        this.letterSpeed = 1;
+        this.lastTargetSpawn = Date.now();
+        this.lastHealthOrbSpawn = Date.now();
+        this.lastSpikeOrbSpawn = Date.now();
         
-        // Setup canvas size
-        if (this.isMobile) {
-            this.canvas.width = window.innerWidth;
-            this.canvas.height = window.innerHeight;
-        }
-
-        this.width = this.canvas.width;
-        this.height = this.canvas.height;
-        
+        // Initialize player
         this.player = {
             x: this.width / 2,
             y: this.height - 50,
             width: 50,
             height: 50,
             lives: 3,
-            angle: 0,
-            speed: 5,
-            velocityX: 0,
-            velocityY: 0
+            dx: 0,
+            dy: 0
         };
-
-        this.bullets = [];
-        this.letters = [];
-        this.healthOrbs = [];
-        this.spikeOrbs = [];
-        this.bossBullets = [];
-        this.score = 0;
-        this.currentTarget = null;
-        this.gameOver = false;
-        this.letterSpeed = 1;
-        this.spawnInterval = 2000;
-        this.targetSpawnInterval = 5000;
-        this.lastSpawn = 0;
-        this.lastTargetSpawn = 0;
-        this.lastHealthOrbSpawn = 0;
-        this.lastSpikeOrbSpawn = 0;
-        this.healthOrbInterval = 20000;
-        this.spikeOrbInterval = 5000;
-        this.mouseX = this.width / 2;
-        this.mouseY = this.height - 50;
-        this.hearts = document.querySelectorAll('.heart');
-        this.boss = null;
-
-        // Initialize controls based on device type
-        this.initializeControls();
         
-        // Start the game
+        // Detect if mobile device
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Event listeners
+        this.submitScoreButton.addEventListener('click', () => this.submitScore());
+        document.getElementById('restartGame').addEventListener('click', () => {
+            this.resetGame();
+            this.startGame();
+        });
+        
+        // Initialize controls
+        this.initControls();
+        if (this.isMobile) {
+            this.initJoystick();
+        }
+        
+        // Start game
         this.startGame();
-        this.update();
     }
 
-    initializeControls() {
-        if (this.isMobile) {
-            // Setup mobile controls
-            const joystickZone = document.getElementById('joystickZone');
-            const shootButton = document.getElementById('shootButton');
-            
-            if (joystickZone && shootButton) {
-                // Create joystick
-                this.joystick = nipplejs.create({
-                    zone: joystickZone,
-                    mode: 'static',
-                    position: { left: '60px', bottom: '60px' },
-                    color: 'white',
-                    size: 120
-                });
-
-                // Joystick events
-                this.joystick.on('move', (evt, data) => {
-                    const angle = data.angle.radian;
-                    const force = Math.min(data.force, 1);
-                    this.player.velocityX = Math.cos(angle) * this.player.speed * force;
-                    this.player.velocityY = Math.sin(angle) * this.player.speed * force;
-                    this.player.angle = angle + Math.PI/2;
-                });
-
-                this.joystick.on('end', () => {
-                    this.player.velocityX = 0;
-                    this.player.velocityY = 0;
-                });
-
-                // Shoot button event
-                shootButton.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.shoot();
-                });
-            }
-        } else {
-            // PC controls
-            this.canvas.addEventListener('mousemove', (e) => {
-                const rect = this.canvas.getBoundingClientRect();
-                this.mouseX = e.clientX - rect.left;
-                this.mouseY = e.clientY - rect.top;
-                
-                // Update player position instantly
-                this.player.x = this.mouseX - this.player.width / 2;
-                this.player.y = this.mouseY - this.player.height / 2;
-                
-                // Keep player within canvas bounds
-                if (this.player.x < 0) this.player.x = 0;
-                if (this.player.x > this.width - this.player.width) {
-                    this.player.x = this.width - this.player.width;
-                }
-                if (this.player.y < 0) this.player.y = 0;
-                if (this.player.y > this.height - this.player.height) {
-                    this.player.y = this.height - this.player.height;
-                }
-                
-                // Calculate angle between player and cursor
-                const dx = this.mouseX - (this.player.x + this.player.width / 2);
-                const dy = this.mouseY - (this.player.y + this.player.height / 2);
-                this.player.angle = Math.atan2(dy, dx) + Math.PI / 2;
-            });
-
-            this.canvas.addEventListener('mousedown', (e) => {
-                if (e.button === 0) { // Left click
-                    this.shoot();
-                }
-            });
-        }
-
-        // Add restart game event
-        const restartButton = document.getElementById('restartGame');
-        if (restartButton) {
-            restartButton.addEventListener('click', () => this.startGame());
+    gameLoop() {
+        if (!this.gameOver) {
+            this.update();
+            this.draw();
+            requestAnimationFrame(() => this.gameLoop());
         }
     }
 
-    updatePlayerPosition() {
-        if (this.isMobile) {
-            // Update position based on joystick
-            this.player.x += this.player.velocityX;
-            this.player.y += this.player.velocityY;
+    draw() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
 
-            // Keep player within bounds
-            if (this.player.x < 0) this.player.x = 0;
-            if (this.player.x > this.width - this.player.width) {
-                this.player.x = this.width - this.player.width;
-            }
-            if (this.player.y < 0) this.player.y = 0;
-            if (this.player.y > this.height - this.player.height) {
-                this.player.y = this.height - this.player.height;
-            }
+        // Draw player
+        this.drawFuturisticSpaceship(this.player.x, this.player.y, this.player.width, this.player.height);
+
+        // Draw letters
+        this.letters.forEach(letter => {
+            this.drawLetter(letter.letter.arabic, letter.x + letter.width / 2, letter.y + letter.height / 2);
+        });
+
+        // Draw bullets
+        this.bullets.forEach(bullet => {
+            this.ctx.fillStyle = '#fff';
+            this.ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+        });
+
+        // Draw health orbs
+        this.healthOrbs.forEach(orb => {
+            this.drawHealthOrb(orb);
+        });
+
+        // Draw spike orbs
+        this.spikeOrbs.forEach(orb => {
+            this.drawSpikeOrb(orb);
+        });
+
+        // Draw boss and boss bullets
+        if (this.boss) {
+            this.drawBoss();
+            this.bossBullets.forEach(bullet => {
+                this.drawBossBullet(bullet);
+            });
         }
     }
 
@@ -217,108 +154,248 @@ class Game {
         this.lastHealthOrbSpawn = Date.now();
         this.lastSpikeOrbSpawn = Date.now();
         this.lastTargetSpawn = Date.now();
+        this.targetSpawnInterval = 2000;
+        this.letterSpeed = 1;
         this.selectNewTarget();
         this.updateLivesDisplay();
+        
+        // Start the game loop
+        this.gameLoop();
     }
 
-    resetGame() {
-        // Reset all game state
-        this.score = 0;
-        this.letters = [];
-        this.bullets = [];
-        this.healthOrbs = [];
-        this.spikeOrbs = [];
-        this.bossBullets = [];
-        this.boss = null;
-        this.gameOver = false;
-        this.player.lives = 3;
-        this.player.x = this.canvas.width / 2;
-        this.player.y = this.canvas.height - 50;
-        this.lastHealthOrbSpawn = Date.now();
-        this.lastSpikeOrbSpawn = Date.now();
-        this.lastTargetSpawn = Date.now();
+    updateDifficulty() {
+        const baseInterval = 2000;
+        const minInterval = 800;
+        const difficultyFactor = Math.floor(this.score / 100);
         
-        // Clear UI elements
-        this.gameOverElement.style.display = 'none';
-        this.bossHealthElement.style.display = 'none';
-        this.scoreElement.textContent = 'Score: 0';
-        this.playerNameInput.value = '';
+        this.targetSpawnInterval = Math.max(minInterval, baseInterval - (difficultyFactor * 200));
         
-        // Re-enable controls
-        if (this.isMobile) {
-            document.getElementById('mobileControls').style.opacity = '1';
-            document.getElementById('mobileControls').style.pointerEvents = 'auto';
+        if (this.boss) {
+            this.boss.bulletSpeed = Math.min(7, 5 + (difficultyFactor * 0.5));
+            this.boss.shootInterval = Math.max(1000, 2000 - (difficultyFactor * 200));
         }
         
-        // Reset player state
-        this.updateLivesDisplay();
-        this.selectNewTarget();
+        this.letterSpeed = Math.min(3, 1 + (difficultyFactor * 0.2));
     }
 
-    selectNewTarget() {
-        this.currentTarget = hijaiyahLetters[Math.floor(Math.random() * hijaiyahLetters.length)];
-        this.targetElement.textContent = this.currentTarget.trans;
-        // Add rotation animation to target text
-        this.targetElement.style.animation = 'rotate 4s linear infinite';
+    updatePlayerPosition() {
+        if (this.isMobile) {
+            // Update position based on joystick
+            this.player.x += this.player.dx;
+            this.player.y += this.player.dy;
+
+            // Keep player within bounds
+            if (this.player.x < 0) this.player.x = 0;
+            if (this.player.x > this.width - this.player.width) {
+                this.player.x = this.width - this.player.width;
+            }
+            if (this.player.y < 0) this.player.y = 0;
+            if (this.player.y > this.height - this.player.height) {
+                this.player.y = this.height - this.player.height;
+            }
+        }
     }
 
-    shoot() {
+    update() {
         if (this.gameOver) return;
 
-        const bulletSpeed = 7;
+        this.updateDifficulty();
         
-        // Add bullet shooting straight up
-        this.bullets.push({
-            x: this.player.x + this.player.width / 2 - 2.5, // Center the bullet
-            y: this.player.y,
-            width: 5,
-            height: 15,
-            speed: bulletSpeed
-        });
-    }
-
-    spawnLetter(forceTarget = false) {
-        let letter;
-        if (forceTarget) {
-            letter = this.currentTarget;
-        } else {
-            letter = hijaiyahLetters[Math.floor(Math.random() * hijaiyahLetters.length)];
+        // Update player position
+        this.updatePlayerPosition();
+        
+        // Update letters
+        this.updateLetters();
+        
+        // Update bullets
+        this.updateBullets();
+        
+        // Update health orbs
+        this.updateHealthOrbs();
+        
+        // Update spike orbs
+        this.updateSpikeOrbs();
+        
+        // Update boss
+        if (this.boss) {
+            this.updateBoss();
         }
         
-        this.letters.push({
-            x: Math.random() * (this.width - 30),
-            y: -30,
-            width: 30,
-            height: 30,
-            letter: letter
-        });
+        // Check for boss spawn
+        this.checkBossSpawn();
+        
+        const currentTime = Date.now();
+
+        // Spawn target letter every interval
+        if (currentTime - this.lastTargetSpawn > this.targetSpawnInterval) {
+            this.spawnLetter();
+            this.lastTargetSpawn = currentTime;
+        }
+
+        // Spawn health orb every 15 seconds
+        if (currentTime - this.lastHealthOrbSpawn > 15000) {
+            this.spawnHealthOrb();
+            this.lastHealthOrbSpawn = currentTime;
+        }
+
+        // Spawn spike orb every 10 seconds
+        if (currentTime - this.lastSpikeOrbSpawn > 10000) {
+            this.spawnSpikeOrb();
+            this.lastSpikeOrbSpawn = currentTime;
+        }
+
+        // Update lives display
+        this.updateLivesDisplay();
     }
 
-    spawnHealthOrb() {
-        this.healthOrbs.push({
-            x: Math.random() * (this.width - 20),
-            y: -20,
-            width: 20,
-            height: 20,
-            speed: 5,
-            dx: (Math.random() - 0.5) * 8, // Random horizontal movement
-            dy: Math.random() * 3 + 3 // Random vertical movement
-        });
+    updateLetters() {
+        for (let i = this.letters.length - 1; i >= 0; i--) {
+            const letter = this.letters[i];
+            letter.y += this.letterSpeed;
+
+            // Check collision with player
+            if (this.checkCollision(this.player, {
+                x: letter.x - 25,
+                y: letter.y - 25,
+                width: 50,
+                height: 50
+            })) {
+                this.player.lives--;
+                if (this.player.lives <= 0) {
+                    this.gameOver = true;
+                    this.gameOverElement.style.display = 'block';
+                }
+                this.letters.splice(i, 1);
+                continue;
+            }
+
+            // Check for collision with bullets
+            for (let j = this.bullets.length - 1; j >= 0; j--) {
+                const bullet = this.bullets[j];
+                if (this.checkCollision(bullet, letter)) {
+                    if (letter.letter === this.currentTarget) {
+                        this.score += 10;
+                        this.scoreElement.textContent = `Score: ${this.score}`;
+                        
+                        // Reduce boss health if exists
+                        if (this.boss) {
+                            this.boss.health--;
+                            this.updateBossHealth();
+                            
+                            // Check if boss is defeated
+                            if (this.boss.health <= 0) {
+                                this.score += 50; // Bonus points for defeating boss
+                                this.scoreElement.textContent = `Score: ${this.score}`;
+                                this.boss = null;
+                                this.bossHealthElement.style.display = 'none';
+                                this.bossBullets = [];
+                            }
+                        }
+                        
+                        this.selectNewTarget();
+                    } else {
+                        this.player.lives--;
+                        if (this.player.lives <= 0) {
+                            this.gameOver = true;
+                            this.gameOverElement.style.display = 'block';
+                        }
+                    }
+                    this.letters.splice(i, 1);
+                    this.bullets.splice(j, 1);
+                    break;
+                }
+            }
+
+            // Check if letter reached bottom
+            if (letter.y > this.height) {
+                if (letter.letter === this.currentTarget) {
+                    this.player.lives--;
+                    if (this.player.lives <= 0) {
+                        this.gameOver = true;
+                        this.gameOverElement.style.display = 'block';
+                    }
+                    this.selectNewTarget(); // Select new target when current one is missed
+                }
+                this.letters.splice(i, 1);
+                continue;
+            }
+        }
     }
 
-    spawnSpikeOrb() {
-        // Spawn 2-4 spike orbs at once
-        const count = Math.floor(Math.random() * 3) + 2; // Random number between 2 and 4
-        for (let i = 0; i < count; i++) {
-            this.spikeOrbs.push({
-                x: Math.random() * (this.width - 40),
-                y: -40 - (i * 30), // Stagger vertical positions
-                width: 40,
-                height: 40,
-                speed: 4,
-                dx: (Math.random() - 0.5) * 8,
-                dy: Math.random() * 4 + 3
-            });
+    updateBullets() {
+        for (let i = this.bullets.length - 1; i >= 0; i--) {
+            const bullet = this.bullets[i];
+            bullet.y -= bullet.speed; // Move straight up
+            
+            if (bullet.y < 0) {
+                this.bullets.splice(i, 1);
+                continue;
+            }
+
+            // Check bullet collisions with boss
+            if (this.boss) {
+                if (this.checkCollision(bullet, this.boss)) {
+                    this.bullets.splice(i, 1);
+                }
+            }
+        }
+    }
+
+    updateHealthOrbs() {
+        for (let i = this.healthOrbs.length - 1; i >= 0; i--) {
+            const orb = this.healthOrbs[i];
+            
+            // Update position with random movement
+            orb.x += orb.dx;
+            orb.y += orb.dy;
+            
+            // Bounce off walls
+            if (orb.x <= 0 || orb.x >= this.width - orb.width) {
+                orb.dx *= -1;
+            }
+
+            // Check collision with player
+            if (this.checkCollision(this.player, orb)) {
+                this.player.lives = Math.min(this.player.lives + 1, 5);
+                this.healthOrbs.splice(i, 1);
+                continue;
+            }
+
+            if (orb.y > this.height) {
+                this.healthOrbs.splice(i, 1);
+                continue;
+            }
+        }
+    }
+
+    updateSpikeOrbs() {
+        for (let i = this.spikeOrbs.length - 1; i >= 0; i--) {
+            const orb = this.spikeOrbs[i];
+            
+            // Update position with random movement
+            orb.x += orb.dx;
+            orb.y += orb.dy;
+            
+            // Bounce off walls
+            if (orb.x <= 0 || orb.x >= this.width - orb.width) {
+                orb.dx *= -1;
+            }
+
+            // Check collision with player
+            if (this.checkCollision(this.player, orb)) {
+                this.player.lives--;
+                if (this.player.lives <= 0) {
+                    this.gameOver = true;
+                    this.gameOverElement.style.display = 'block';
+                }
+                this.spikeOrbs.splice(i, 1);
+                continue;
+            }
+
+            if (orb.y > this.height) {
+                this.spikeOrbs.splice(i, 1);
+                continue;
+            }
         }
     }
 
@@ -500,10 +577,59 @@ class Game {
         });
     }
 
-    updateLivesDisplay() {
-        this.hearts.forEach((heart, index) => {
-            heart.style.opacity = index < this.player.lives ? '1' : '0.2';
-        });
+    drawHealthOrb(orb) {
+        this.ctx.beginPath();
+        const gradient = this.ctx.createRadialGradient(
+            orb.x + orb.width/2, orb.y + orb.height/2, 0,
+            orb.x + orb.width/2, orb.y + orb.height/2, orb.width/2
+        );
+        gradient.addColorStop(0, '#81C784');
+        gradient.addColorStop(1, '#4CAF50');
+        this.ctx.fillStyle = gradient;
+        this.ctx.arc(orb.x + orb.width/2, orb.y + orb.height/2, orb.width/2, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.closePath();
+    }
+
+    drawSpikeOrb(orb) {
+        this.ctx.beginPath();
+        const gradient = this.ctx.createRadialGradient(
+            orb.x + orb.width/2, orb.y + orb.height/2, 0,
+            orb.x + orb.width/2, orb.y + orb.height/2, orb.width/2
+        );
+        gradient.addColorStop(0, '#f44336');
+        gradient.addColorStop(1, '#d32f2f');
+        
+        // Draw spiky circle
+        const spikes = 8;
+        const outerRadius = orb.width/2;
+        const innerRadius = orb.width/4;
+        const centerX = orb.x + orb.width/2;
+        const centerY = orb.y + orb.height/2;
+        
+        for(let i = 0; i < spikes * 2; i++) {
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const angle = (i * Math.PI) / spikes;
+            const x = centerX + Math.cos(angle) * radius;
+            const y = centerY + Math.sin(angle) * radius;
+            
+            if(i === 0) {
+                this.ctx.moveTo(x, y);
+            } else {
+                this.ctx.lineTo(x, y);
+            }
+        }
+        
+        this.ctx.closePath();
+        this.ctx.fillStyle = gradient;
+        this.ctx.fill();
+    }
+
+    drawBossBullet(bullet) {
+        this.ctx.beginPath();
+        this.ctx.arc(bullet.x, bullet.y, bullet.width/2, 0, Math.PI * 2);
+        this.ctx.fillStyle = '#ff0000';
+        this.ctx.fill();
     }
 
     updateBoss() {
@@ -547,307 +673,10 @@ class Game {
         }
     }
 
-    updateDifficulty() {
-        // Increase difficulty based on score
-        const baseInterval = 2000; // Base spawn interval in milliseconds
-        const minInterval = 800;   // Minimum spawn interval
-        const difficultyFactor = Math.floor(this.score / 100); // Increase difficulty every 100 points
-        
-        // Update spawn intervals
-        this.targetSpawnInterval = Math.max(minInterval, baseInterval - (difficultyFactor * 200));
-        
-        // Update enemy movement speed
-        if (this.boss) {
-            this.boss.bulletSpeed = Math.min(7, 5 + (difficultyFactor * 0.5));
-            this.boss.shootInterval = Math.max(1000, 2000 - (difficultyFactor * 200));
-        }
-        
-        // Update letter movement speed
-        this.letterSpeed = Math.min(3, 1 + (difficultyFactor * 0.2));
-    }
-
-    update() {
-        if (this.gameOver) return;
-
-        this.updateDifficulty();
-        
-        // Update player position
-        this.updatePlayerPosition();
-        
-        // Update letters
-        this.updateLetters();
-        
-        // Update bullets
-        this.updateBullets();
-        
-        // Update health orbs
-        this.updateHealthOrbs();
-        
-        // Update spike orbs
-        this.updateSpikeOrbs();
-        
-        // Update boss
-        if (this.boss) {
-            this.updateBoss();
-        }
-        
-        // Check for boss spawn
-        this.checkBossSpawn();
-        
-        const currentTime = Date.now();
-
-        // Spawn target letter every interval
-        if (currentTime - this.lastTargetSpawn > this.targetSpawnInterval) {
-            this.spawnLetter();
-            this.lastTargetSpawn = currentTime;
-        }
-
-        // Spawn health orb every 15 seconds
-        if (currentTime - this.lastHealthOrbSpawn > 15000) {
-            this.spawnHealthOrb();
-            this.lastHealthOrbSpawn = currentTime;
-        }
-
-        // Spawn spike orb every 10 seconds
-        if (currentTime - this.lastSpikeOrbSpawn > 10000) {
-            this.spawnSpikeOrb();
-            this.lastSpikeOrbSpawn = currentTime;
-        }
-
-        this.ctx.clearRect(0, 0, this.width, this.height);
-
-        // Draw player spaceship
-        this.drawFuturisticSpaceship(this.player.x, this.player.y, this.player.width, this.player.height);
-
-        // Draw letters
-        this.letters.forEach(letter => {
-            this.drawLetter(letter.letter.arabic, letter.x + letter.width / 2, letter.y + letter.height / 2);
+    updateLivesDisplay() {
+        this.hearts.forEach((heart, index) => {
+            heart.style.opacity = index < this.player.lives ? '1' : '0.2';
         });
-
-        // Draw bullets
-        this.bullets.forEach(bullet => {
-            this.ctx.fillStyle = '#fff';
-            this.ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-        });
-
-        // Draw health orbs
-        this.healthOrbs.forEach(orb => {
-            this.ctx.beginPath();
-            const gradient = this.ctx.createRadialGradient(
-                orb.x + orb.width/2, orb.y + orb.height/2, 0,
-                orb.x + orb.width/2, orb.y + orb.height/2, orb.width/2
-            );
-            gradient.addColorStop(0, '#81C784');
-            gradient.addColorStop(1, '#4CAF50');
-            this.ctx.fillStyle = gradient;
-            this.ctx.arc(orb.x + orb.width/2, orb.y + orb.height/2, orb.width/2, 0, Math.PI * 2);
-            this.ctx.fill();
-            this.ctx.closePath();
-        });
-
-        // Draw spike orbs
-        this.spikeOrbs.forEach(orb => {
-            this.ctx.beginPath();
-            const gradient = this.ctx.createRadialGradient(
-                orb.x + orb.width/2, orb.y + orb.height/2, 0,
-                orb.x + orb.width/2, orb.y + orb.height/2, orb.width/2
-            );
-            gradient.addColorStop(0, '#f44336');
-            gradient.addColorStop(1, '#d32f2f');
-            
-            // Draw spiky circle
-            const spikes = 8;
-            const outerRadius = orb.width/2;
-            const innerRadius = orb.width/4;
-            const centerX = orb.x + orb.width/2;
-            const centerY = orb.y + orb.height/2;
-            
-            for(let i = 0; i < spikes * 2; i++) {
-                const radius = i % 2 === 0 ? outerRadius : innerRadius;
-                const angle = (i * Math.PI) / spikes;
-                const x = centerX + Math.cos(angle) * radius;
-                const y = centerY + Math.sin(angle) * radius;
-                
-                if(i === 0) {
-                    this.ctx.moveTo(x, y);
-                } else {
-                    this.ctx.lineTo(x, y);
-                }
-            }
-            
-            this.ctx.closePath();
-            this.ctx.fillStyle = gradient;
-            this.ctx.fill();
-        });
-
-        // Draw boss
-        if (this.boss) {
-            this.drawBoss();
-        }
-
-        // Draw boss bullets
-        this.bossBullets.forEach(bullet => {
-            this.ctx.beginPath();
-            this.ctx.arc(bullet.x, bullet.y, bullet.width/2, 0, Math.PI * 2);
-            this.ctx.fillStyle = '#ff0000';
-            this.ctx.fill();
-        });
-
-        // Update lives display
-        this.updateLivesDisplay();
-
-        requestAnimationFrame(() => this.update());
-    }
-
-    updateLetters() {
-        for (let i = this.letters.length - 1; i >= 0; i--) {
-            const letter = this.letters[i];
-            letter.y += this.letterSpeed;
-
-            // Check collision with player
-            if (this.checkCollision(this.player, {
-                x: letter.x - 25,
-                y: letter.y - 25,
-                width: 50,
-                height: 50
-            })) {
-                this.player.lives--;
-                if (this.player.lives <= 0) {
-                    this.gameOver = true;
-                    this.gameOverElement.style.display = 'block';
-                }
-                this.letters.splice(i, 1);
-                continue;
-            }
-
-            // Check for collision with bullets
-            for (let j = this.bullets.length - 1; j >= 0; j--) {
-                const bullet = this.bullets[j];
-                if (this.checkCollision(bullet, letter)) {
-                    if (letter.letter === this.currentTarget) {
-                        this.score += 10;
-                        this.scoreElement.textContent = `Score: ${this.score}`;
-                        
-                        // Reduce boss health if exists
-                        if (this.boss) {
-                            this.boss.health--;
-                            this.updateBossHealth();
-                            
-                            // Check if boss is defeated
-                            if (this.boss.health <= 0) {
-                                this.score += 50; // Bonus points for defeating boss
-                                this.scoreElement.textContent = `Score: ${this.score}`;
-                                this.boss = null;
-                                this.bossHealthElement.style.display = 'none';
-                                this.bossBullets = [];
-                            }
-                        }
-                        
-                        this.selectNewTarget();
-                    } else {
-                        this.player.lives--;
-                        if (this.player.lives <= 0) {
-                            this.gameOver = true;
-                            this.gameOverElement.style.display = 'block';
-                        }
-                    }
-                    this.letters.splice(i, 1);
-                    this.bullets.splice(j, 1);
-                    break;
-                }
-            }
-
-            // Check if letter reached bottom
-            if (letter.y > this.height) {
-                if (letter.letter === this.currentTarget) {
-                    this.player.lives--;
-                    if (this.player.lives <= 0) {
-                        this.gameOver = true;
-                        this.gameOverElement.style.display = 'block';
-                    }
-                    this.selectNewTarget(); // Select new target when current one is missed
-                }
-                this.letters.splice(i, 1);
-                continue;
-            }
-        }
-    }
-
-    updateBullets() {
-        for (let i = this.bullets.length - 1; i >= 0; i--) {
-            const bullet = this.bullets[i];
-            bullet.y -= bullet.speed; // Move straight up
-            
-            if (bullet.y < 0) {
-                this.bullets.splice(i, 1);
-                continue;
-            }
-
-            // Check bullet collisions with boss
-            if (this.boss) {
-                if (this.checkCollision(bullet, this.boss)) {
-                    this.bullets.splice(i, 1);
-                }
-            }
-        }
-    }
-
-    updateHealthOrbs() {
-        for (let i = this.healthOrbs.length - 1; i >= 0; i--) {
-            const orb = this.healthOrbs[i];
-            
-            // Update position with random movement
-            orb.x += orb.dx;
-            orb.y += orb.dy;
-            
-            // Bounce off walls
-            if (orb.x <= 0 || orb.x >= this.width - orb.width) {
-                orb.dx *= -1;
-            }
-
-            // Check collision with player
-            if (this.checkCollision(this.player, orb)) {
-                this.player.lives = Math.min(this.player.lives + 1, 5);
-                this.healthOrbs.splice(i, 1);
-                continue;
-            }
-
-            if (orb.y > this.height) {
-                this.healthOrbs.splice(i, 1);
-                continue;
-            }
-        }
-    }
-
-    updateSpikeOrbs() {
-        for (let i = this.spikeOrbs.length - 1; i >= 0; i--) {
-            const orb = this.spikeOrbs[i];
-            
-            // Update position with random movement
-            orb.x += orb.dx;
-            orb.y += orb.dy;
-            
-            // Bounce off walls
-            if (orb.x <= 0 || orb.x >= this.width - orb.width) {
-                orb.dx *= -1;
-            }
-
-            // Check collision with player
-            if (this.checkCollision(this.player, orb)) {
-                this.player.lives--;
-                if (this.player.lives <= 0) {
-                    this.gameOver = true;
-                    this.gameOverElement.style.display = 'block';
-                }
-                this.spikeOrbs.splice(i, 1);
-                continue;
-            }
-
-            if (orb.y > this.height) {
-                this.spikeOrbs.splice(i, 1);
-                continue;
-            }
-        }
     }
 
     checkCollision(rect1, rect2) {
@@ -904,9 +733,190 @@ class Game {
         }
     }
 
-    startGame() {
+    selectNewTarget() {
+        this.currentTarget = hijaiyahLetters[Math.floor(Math.random() * hijaiyahLetters.length)];
+        this.targetElement.textContent = this.currentTarget.trans;
+        // Add rotation animation to target text
+        this.targetElement.style.animation = 'rotate 4s linear infinite';
+    }
+
+    shoot() {
+        if (this.gameOver) return;
+
+        const bulletSpeed = 7;
+        
+        // Add bullet shooting straight up
+        this.bullets.push({
+            x: this.player.x + this.player.width / 2 - 2.5, // Center the bullet
+            y: this.player.y,
+            width: 5,
+            height: 15,
+            speed: bulletSpeed
+        });
+    }
+
+    spawnLetter(forceTarget = false) {
+        let letter;
+        if (forceTarget) {
+            letter = this.currentTarget;
+        } else {
+            letter = hijaiyahLetters[Math.floor(Math.random() * hijaiyahLetters.length)];
+        }
+        
+        this.letters.push({
+            x: Math.random() * (this.width - 30),
+            y: -30,
+            width: 30,
+            height: 30,
+            letter: letter
+        });
+    }
+
+    spawnHealthOrb() {
+        this.healthOrbs.push({
+            x: Math.random() * (this.width - 20),
+            y: -20,
+            width: 20,
+            height: 20,
+            speed: 5,
+            dx: (Math.random() - 0.5) * 8, // Random horizontal movement
+            dy: Math.random() * 3 + 3 // Random vertical movement
+        });
+    }
+
+    spawnSpikeOrb() {
+        // Spawn 2-4 spike orbs at once
+        const count = Math.floor(Math.random() * 3) + 2; // Random number between 2 and 4
+        for (let i = 0; i < count; i++) {
+            this.spikeOrbs.push({
+                x: Math.random() * (this.width - 40),
+                y: -40 - (i * 30), // Stagger vertical positions
+                width: 40,
+                height: 40,
+                speed: 4,
+                dx: (Math.random() - 0.5) * 8,
+                dy: Math.random() * 4 + 3
+            });
+        }
+    }
+
+    initControls() {
+        if (this.isMobile) {
+            // Setup mobile controls
+            const joystickZone = document.getElementById('joystickZone');
+            const shootButton = document.getElementById('shootButton');
+            
+            if (joystickZone && shootButton) {
+                // Create joystick
+                this.joystick = nipplejs.create({
+                    zone: joystickZone,
+                    mode: 'static',
+                    position: { left: '60px', bottom: '60px' },
+                    color: 'white',
+                    size: 120
+                });
+
+                // Joystick events
+                this.joystick.on('move', (evt, data) => {
+                    const angle = data.angle.radian;
+                    const force = Math.min(data.force, 1);
+                    this.player.dx = Math.cos(angle) * this.player.speed * force;
+                    this.player.dy = Math.sin(angle) * this.player.speed * force;
+                    this.player.angle = angle + Math.PI/2;
+                });
+
+                this.joystick.on('end', () => {
+                    this.player.dx = 0;
+                    this.player.dy = 0;
+                });
+
+                // Shoot button event
+                shootButton.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.shoot();
+                });
+            }
+        } else {
+            // PC controls
+            this.canvas.addEventListener('mousemove', (e) => {
+                const rect = this.canvas.getBoundingClientRect();
+                this.mouseX = e.clientX - rect.left;
+                this.mouseY = e.clientY - rect.top;
+                
+                // Update player position instantly
+                this.player.x = this.mouseX - this.player.width / 2;
+                this.player.y = this.mouseY - this.player.height / 2;
+                
+                // Keep player within canvas bounds
+                if (this.player.x < 0) this.player.x = 0;
+                if (this.player.x > this.width - this.player.width) {
+                    this.player.x = this.width - this.player.width;
+                }
+                if (this.player.y < 0) this.player.y = 0;
+                if (this.player.y > this.height - this.player.height) {
+                    this.player.y = this.height - this.player.height;
+                }
+                
+                // Calculate angle between player and cursor
+                const dx = this.mouseX - (this.player.x + this.player.width / 2);
+                const dy = this.mouseY - (this.player.y + this.player.height / 2);
+                this.player.angle = Math.atan2(dy, dx) + Math.PI / 2;
+            });
+
+            this.canvas.addEventListener('mousedown', (e) => {
+                if (e.button === 0) { // Left click
+                    this.shoot();
+                }
+            });
+        }
+
+        // Add restart game event
+        const restartButton = document.getElementById('restartGame');
+        if (restartButton) {
+            restartButton.addEventListener('click', () => this.startGame());
+        }
+    }
+
+    initJoystick() {
+        // Setup mobile controls
+        const joystickZone = document.getElementById('joystickZone');
+        const shootButton = document.getElementById('shootButton');
+        
+        if (joystickZone && shootButton) {
+            // Create joystick
+            this.joystick = nipplejs.create({
+                zone: joystickZone,
+                mode: 'static',
+                position: { left: '60px', bottom: '60px' },
+                color: 'white',
+                size: 120
+            });
+
+            // Joystick events
+            this.joystick.on('move', (evt, data) => {
+                const angle = data.angle.radian;
+                const force = Math.min(data.force, 1);
+                this.player.dx = Math.cos(angle) * this.player.speed * force;
+                this.player.dy = Math.sin(angle) * this.player.speed * force;
+                this.player.angle = angle + Math.PI/2;
+            });
+
+            this.joystick.on('end', () => {
+                this.player.dx = 0;
+                this.player.dy = 0;
+            });
+
+            // Shoot button event
+            shootButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.shoot();
+            });
+        }
+    }
+
+    resetGame() {
+        // Reset all game state
         this.score = 0;
-        this.scoreElement.textContent = 'Score: 0';
         this.letters = [];
         this.bullets = [];
         this.healthOrbs = [];
@@ -915,21 +925,27 @@ class Game {
         this.boss = null;
         this.gameOver = false;
         this.player.lives = 3;
-        this.gameOverElement.style.display = 'none';
-        this.bossHealthElement.style.display = 'none';
+        this.player.x = this.canvas.width / 2;
+        this.player.y = this.canvas.height - 50;
         this.lastHealthOrbSpawn = Date.now();
         this.lastSpikeOrbSpawn = Date.now();
         this.lastTargetSpawn = Date.now();
-        this.targetSpawnInterval = 2000; // Initial spawn interval
-        this.letterSpeed = 1;           // Initial letter speed
-        this.selectNewTarget();
-        this.updateLivesDisplay();
         
-        // Start the game loop if it's not already running
-        if (!this.gameLoopRunning) {
-            this.gameLoopRunning = true;
-            this.gameLoop();
+        // Clear UI elements
+        this.gameOverElement.style.display = 'none';
+        this.bossHealthElement.style.display = 'none';
+        this.scoreElement.textContent = 'Score: 0';
+        this.playerNameInput.value = '';
+        
+        // Re-enable controls
+        if (this.isMobile) {
+            document.getElementById('mobileControls').style.opacity = '1';
+            document.getElementById('mobileControls').style.pointerEvents = 'auto';
         }
+        
+        // Reset player state
+        this.updateLivesDisplay();
+        this.selectNewTarget();
     }
 }
 

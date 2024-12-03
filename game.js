@@ -547,118 +547,91 @@ class Game {
         }
     }
 
+    updateDifficulty() {
+        // Increase difficulty based on score
+        const baseInterval = 2000; // Base spawn interval in milliseconds
+        const minInterval = 800;   // Minimum spawn interval
+        const difficultyFactor = Math.floor(this.score / 100); // Increase difficulty every 100 points
+        
+        // Update spawn intervals
+        this.targetSpawnInterval = Math.max(minInterval, baseInterval - (difficultyFactor * 200));
+        
+        // Update enemy movement speed
+        if (this.boss) {
+            this.boss.bulletSpeed = Math.min(7, 5 + (difficultyFactor * 0.5));
+            this.boss.shootInterval = Math.max(1000, 2000 - (difficultyFactor * 200));
+        }
+        
+        // Update letter movement speed
+        this.letterSpeed = Math.min(3, 1 + (difficultyFactor * 0.2));
+    }
+
     update() {
         if (this.gameOver) return;
 
-        // Update player position for mobile
+        this.updateDifficulty();
+        
+        // Update player position
         this.updatePlayerPosition();
-
-        this.ctx.clearRect(0, 0, this.width, this.height);
+        
+        // Update letters
+        this.updateLetters();
+        
+        // Update bullets
+        this.updateBullets();
+        
+        // Update health orbs
+        this.updateHealthOrbs();
+        
+        // Update spike orbs
+        this.updateSpikeOrbs();
+        
+        // Update boss
+        if (this.boss) {
+            this.updateBoss();
+        }
+        
+        // Check for boss spawn
+        this.checkBossSpawn();
         
         const currentTime = Date.now();
 
-        this.checkBossSpawn();
-
-        // Spawn target letter every 5 seconds
+        // Spawn target letter every interval
         if (currentTime - this.lastTargetSpawn > this.targetSpawnInterval) {
-            this.spawnLetter(true);
+            this.spawnLetter();
             this.lastTargetSpawn = currentTime;
         }
-        
-        // Spawn random letters
-        if (currentTime - this.lastSpawn > this.spawnInterval) {
-            this.spawnLetter(false);
-            this.lastSpawn = currentTime;
-        }
 
-        // Spawn health orbs
-        if (currentTime - this.lastHealthOrbSpawn > this.healthOrbInterval) {
+        // Spawn health orb every 15 seconds
+        if (currentTime - this.lastHealthOrbSpawn > 15000) {
             this.spawnHealthOrb();
             this.lastHealthOrbSpawn = currentTime;
         }
 
-        // Spawn spike orbs
-        if (currentTime - this.lastSpikeOrbSpawn > this.spikeOrbInterval) {
+        // Spawn spike orb every 10 seconds
+        if (currentTime - this.lastSpikeOrbSpawn > 10000) {
             this.spawnSpikeOrb();
             this.lastSpikeOrbSpawn = currentTime;
         }
 
-        // Update boss
-        if (this.boss) {
-            this.updateBoss();
-            this.drawBoss();
+        this.ctx.clearRect(0, 0, this.width, this.height);
 
-            // Update boss bullets
-            for (let i = this.bossBullets.length - 1; i >= 0; i--) {
-                const bullet = this.bossBullets[i];
-                bullet.x += bullet.dx;
-                bullet.y += bullet.dy;
+        // Draw player spaceship
+        this.drawFuturisticSpaceship(this.player.x, this.player.y, this.player.width, this.player.height);
 
-                // Check collision with player
-                if (this.checkCollision(this.player, bullet)) {
-                    this.player.lives--;
-                    if (this.player.lives <= 0) {
-                        this.gameOver = true;
-                        this.gameOverElement.style.display = 'block';
-                    }
-                    this.bossBullets.splice(i, 1);
-                    continue;
-                }
+        // Draw letters
+        this.letters.forEach(letter => {
+            this.drawLetter(letter.letter.arabic, letter.x + letter.width / 2, letter.y + letter.height / 2);
+        });
 
-                // Remove if out of bounds
-                if (bullet.y > this.height) {
-                    this.bossBullets.splice(i, 1);
-                    continue;
-                }
-
-                // Draw bullet
-                this.ctx.beginPath();
-                this.ctx.arc(bullet.x, bullet.y, bullet.width/2, 0, Math.PI * 2);
-                this.ctx.fillStyle = '#ff0000';
-                this.ctx.fill();
-            }
-        }
-
-        // Update and draw bullets
-        for (let i = this.bullets.length - 1; i >= 0; i--) {
-            const bullet = this.bullets[i];
-            bullet.y -= bullet.speed; // Move straight up
-            
-            if (bullet.y < 0) {
-                this.bullets.splice(i, 1);
-                continue;
-            }
-
+        // Draw bullets
+        this.bullets.forEach(bullet => {
             this.ctx.fillStyle = '#fff';
             this.ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-        }
+        });
 
-        // Update and draw health orbs
-        for (let i = this.healthOrbs.length - 1; i >= 0; i--) {
-            const orb = this.healthOrbs[i];
-            
-            // Update position with random movement
-            orb.x += orb.dx;
-            orb.y += orb.dy;
-            
-            // Bounce off walls
-            if (orb.x <= 0 || orb.x >= this.width - orb.width) {
-                orb.dx *= -1;
-            }
-
-            // Check collision with player
-            if (this.checkCollision(this.player, orb)) {
-                this.player.lives = Math.min(this.player.lives + 1, 5);
-                this.healthOrbs.splice(i, 1);
-                continue;
-            }
-
-            if (orb.y > this.height) {
-                this.healthOrbs.splice(i, 1);
-                continue;
-            }
-
-            // Draw health orb with gradient
+        // Draw health orbs
+        this.healthOrbs.forEach(orb => {
             this.ctx.beginPath();
             const gradient = this.ctx.createRadialGradient(
                 orb.x + orb.width/2, orb.y + orb.height/2, 0,
@@ -670,38 +643,10 @@ class Game {
             this.ctx.arc(orb.x + orb.width/2, orb.y + orb.height/2, orb.width/2, 0, Math.PI * 2);
             this.ctx.fill();
             this.ctx.closePath();
-        }
+        });
 
-        // Update and draw spike orbs
-        for (let i = this.spikeOrbs.length - 1; i >= 0; i--) {
-            const orb = this.spikeOrbs[i];
-            
-            // Update position with random movement
-            orb.x += orb.dx;
-            orb.y += orb.dy;
-            
-            // Bounce off walls
-            if (orb.x <= 0 || orb.x >= this.width - orb.width) {
-                orb.dx *= -1;
-            }
-
-            // Check collision with player
-            if (this.checkCollision(this.player, orb)) {
-                this.player.lives--;
-                if (this.player.lives <= 0) {
-                    this.gameOver = true;
-                    this.gameOverElement.style.display = 'block';
-                }
-                this.spikeOrbs.splice(i, 1);
-                continue;
-            }
-
-            if (orb.y > this.height) {
-                this.spikeOrbs.splice(i, 1);
-                continue;
-            }
-
-            // Draw spike orb
+        // Draw spike orbs
+        this.spikeOrbs.forEach(orb => {
             this.ctx.beginPath();
             const gradient = this.ctx.createRadialGradient(
                 orb.x + orb.width/2, orb.y + orb.height/2, 0,
@@ -733,9 +678,28 @@ class Game {
             this.ctx.closePath();
             this.ctx.fillStyle = gradient;
             this.ctx.fill();
+        });
+
+        // Draw boss
+        if (this.boss) {
+            this.drawBoss();
         }
 
-        // Update and draw letters
+        // Draw boss bullets
+        this.bossBullets.forEach(bullet => {
+            this.ctx.beginPath();
+            this.ctx.arc(bullet.x, bullet.y, bullet.width/2, 0, Math.PI * 2);
+            this.ctx.fillStyle = '#ff0000';
+            this.ctx.fill();
+        });
+
+        // Update lives display
+        this.updateLivesDisplay();
+
+        requestAnimationFrame(() => this.update());
+    }
+
+    updateLetters() {
         for (let i = this.letters.length - 1; i >= 0; i--) {
             const letter = this.letters[i];
             letter.y += this.letterSpeed;
@@ -806,28 +770,84 @@ class Game {
                 this.letters.splice(i, 1);
                 continue;
             }
-
-            // Draw letter in bubble
-            this.drawLetter(letter.letter.arabic, letter.x + letter.width / 2, letter.y + letter.height / 2);
         }
+    }
 
-        // Check bullet collisions with boss
-        if (this.boss) {
-            for (let i = this.bullets.length - 1; i >= 0; i--) {
-                const bullet = this.bullets[i];
+    updateBullets() {
+        for (let i = this.bullets.length - 1; i >= 0; i--) {
+            const bullet = this.bullets[i];
+            bullet.y -= bullet.speed; // Move straight up
+            
+            if (bullet.y < 0) {
+                this.bullets.splice(i, 1);
+                continue;
+            }
+
+            // Check bullet collisions with boss
+            if (this.boss) {
                 if (this.checkCollision(bullet, this.boss)) {
                     this.bullets.splice(i, 1);
                 }
             }
         }
+    }
 
-        // Draw player spaceship
-        this.drawFuturisticSpaceship(this.player.x, this.player.y, this.player.width, this.player.height);
+    updateHealthOrbs() {
+        for (let i = this.healthOrbs.length - 1; i >= 0; i--) {
+            const orb = this.healthOrbs[i];
+            
+            // Update position with random movement
+            orb.x += orb.dx;
+            orb.y += orb.dy;
+            
+            // Bounce off walls
+            if (orb.x <= 0 || orb.x >= this.width - orb.width) {
+                orb.dx *= -1;
+            }
 
-        // Update lives display
-        this.updateLivesDisplay();
+            // Check collision with player
+            if (this.checkCollision(this.player, orb)) {
+                this.player.lives = Math.min(this.player.lives + 1, 5);
+                this.healthOrbs.splice(i, 1);
+                continue;
+            }
 
-        requestAnimationFrame(() => this.update());
+            if (orb.y > this.height) {
+                this.healthOrbs.splice(i, 1);
+                continue;
+            }
+        }
+    }
+
+    updateSpikeOrbs() {
+        for (let i = this.spikeOrbs.length - 1; i >= 0; i--) {
+            const orb = this.spikeOrbs[i];
+            
+            // Update position with random movement
+            orb.x += orb.dx;
+            orb.y += orb.dy;
+            
+            // Bounce off walls
+            if (orb.x <= 0 || orb.x >= this.width - orb.width) {
+                orb.dx *= -1;
+            }
+
+            // Check collision with player
+            if (this.checkCollision(this.player, orb)) {
+                this.player.lives--;
+                if (this.player.lives <= 0) {
+                    this.gameOver = true;
+                    this.gameOverElement.style.display = 'block';
+                }
+                this.spikeOrbs.splice(i, 1);
+                continue;
+            }
+
+            if (orb.y > this.height) {
+                this.spikeOrbs.splice(i, 1);
+                continue;
+            }
+        }
     }
 
     checkCollision(rect1, rect2) {
@@ -884,9 +904,9 @@ class Game {
         }
     }
 
-    resetGame() {
-        // Reset all game state
+    startGame() {
         this.score = 0;
+        this.scoreElement.textContent = 'Score: 0';
         this.letters = [];
         this.bullets = [];
         this.healthOrbs = [];
@@ -895,27 +915,21 @@ class Game {
         this.boss = null;
         this.gameOver = false;
         this.player.lives = 3;
-        this.player.x = this.canvas.width / 2;
-        this.player.y = this.canvas.height - 50;
+        this.gameOverElement.style.display = 'none';
+        this.bossHealthElement.style.display = 'none';
         this.lastHealthOrbSpawn = Date.now();
         this.lastSpikeOrbSpawn = Date.now();
         this.lastTargetSpawn = Date.now();
-        
-        // Clear UI elements
-        this.gameOverElement.style.display = 'none';
-        this.bossHealthElement.style.display = 'none';
-        this.scoreElement.textContent = 'Score: 0';
-        this.playerNameInput.value = '';
-        
-        // Re-enable controls
-        if (this.isMobile) {
-            document.getElementById('mobileControls').style.opacity = '1';
-            document.getElementById('mobileControls').style.pointerEvents = 'auto';
-        }
-        
-        // Reset player state
-        this.updateLivesDisplay();
+        this.targetSpawnInterval = 2000; // Initial spawn interval
+        this.letterSpeed = 1;           // Initial letter speed
         this.selectNewTarget();
+        this.updateLivesDisplay();
+        
+        // Start the game loop if it's not already running
+        if (!this.gameLoopRunning) {
+            this.gameLoopRunning = true;
+            this.gameLoop();
+        }
     }
 }
 

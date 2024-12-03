@@ -33,21 +33,26 @@ const hijaiyahLetters = [
 
 class Game {
     constructor() {
-        this.width = 800;
-        this.height = 600;
         this.canvas = document.getElementById('gameCanvas');
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
         this.ctx = this.canvas.getContext('2d');
         
-        // Get window dimensions for mobile
+        // Detect mobile device
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Set canvas size based on platform
         if (this.isMobile) {
-            this.width = window.innerWidth;
-            this.height = window.innerHeight;
+            // Mobile: 20:9 ratio
+            const screenWidth = window.innerWidth;
+            this.canvas.width = screenWidth;
+            this.canvas.height = (screenWidth * 9) / 20;
         } else {
-            this.width = 800;
-            this.height = 600;
+            // Desktop: 16:9 ratio
+            this.canvas.width = 1280; // Standard 16:9 width
+            this.canvas.height = 720; // Standard 16:9 height
         }
+        
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
         
         this.scoreElement = document.getElementById('score');
         this.targetElement = document.getElementById('targetText');
@@ -164,26 +169,28 @@ class Game {
     }
 
     initializeGame() {
+        // Start game immediately for both mobile and desktop
+        this.startGame();
+        
         if (this.isMobile) {
-            // Show fullscreen button for mobile only
-            const fullscreenButton = document.getElementById('fullscreenButton');
-            fullscreenButton.style.display = 'block';
-            
-            fullscreenButton.addEventListener('click', () => {
-                fullscreenButton.style.display = 'none';
-                this.startGame();
-                if (document.documentElement.requestFullscreen) {
-                    document.documentElement.requestFullscreen();
-                }
-            });
-        } else {
-            // Start game immediately on desktop
-            this.startGame();
+            this.initMobileControls();
         }
     }
 
     startGame() {
         // Initialize game state
+        this.score = 0;
+        this.scoreElement.textContent = 'Score: 0';
+        this.player = {
+            x: this.width / 2,
+            y: this.isMobile ? this.height - 100 : this.height / 2,
+            width: 50,
+            height: 50,
+            vx: 0,
+            vy: 0,
+            lives: 3
+        };
+        
         this.selectNewTarget();
         this.gameLoop();
         

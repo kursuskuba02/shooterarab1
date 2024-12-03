@@ -36,30 +36,12 @@ class Game {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.scoreElement = document.getElementById('score');
-        this.targetElement = document.getElementById('targetText');
+        this.targetElement = document.getElementById('target');
         this.gameOverElement = document.getElementById('gameOver');
+        this.startButton = document.getElementById('startButton');
         this.bossHealthElement = document.getElementById('bossHealth');
         this.bossHealthBarElement = document.getElementById('bossHealthBar');
         this.bossHealthTextElement = document.getElementById('bossHealthText');
-        this.playerNameInput = document.getElementById('playerNameInput');
-        this.submitScoreButton = document.getElementById('submitScore');
-        this.leaderboardEntries = document.getElementById('leaderboardEntries');
-        this.highScores = JSON.parse(localStorage.getItem('highScores') || '[]');
-        
-        this.submitScoreButton.addEventListener('click', () => this.submitScore());
-        document.getElementById('restartGame').addEventListener('click', () => {
-            this.resetGame();
-            this.startGame();
-        });
-
-        // Detect if mobile device
-        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        // Setup canvas size
-        if (this.isMobile) {
-            this.canvas.width = window.innerWidth;
-            this.canvas.height = window.innerHeight;
-        }
 
         this.width = this.canvas.width;
         this.height = this.canvas.height;
@@ -70,10 +52,7 @@ class Game {
             width: 50,
             height: 50,
             lives: 3,
-            angle: 0,
-            speed: 5,
-            velocityX: 0,
-            velocityY: 0
+            angle: 0
         };
 
         this.bullets = [];
@@ -86,110 +65,39 @@ class Game {
         this.gameOver = false;
         this.letterSpeed = 1;
         this.spawnInterval = 2000;
-        this.targetSpawnInterval = 5000;
+        this.targetSpawnInterval = 5000; // Target letter spawn interval
         this.lastSpawn = 0;
         this.lastTargetSpawn = 0;
         this.lastHealthOrbSpawn = 0;
         this.lastSpikeOrbSpawn = 0;
-        this.healthOrbInterval = 20000;
-        this.spikeOrbInterval = 5000;
+        this.healthOrbInterval = 20000; // 20 seconds
+        this.spikeOrbInterval = 5000; // Reduced to 5 seconds for more challenge
         this.mouseX = this.width / 2;
         this.mouseY = this.height - 50;
+        this.spikeOrbs = [];
+        this.leaderboard = JSON.parse(localStorage.getItem('leaderboard') || '[]');
         this.hearts = document.querySelectorAll('.heart');
         this.boss = null;
 
-        // Initialize controls based on device type
-        this.initializeControls();
-        
-        // Start the game
-        this.startGame();
-        this.update();
+        this.bindEvents();
+        this.startButton.addEventListener('click', () => this.startGame());
+        document.getElementById('submitScore').addEventListener('click', () => this.submitScore());
+        document.getElementById('restartGame').addEventListener('click', () => this.startGame());
+        this.updateLeaderboardDisplay();
     }
 
-    initializeControls() {
-        if (this.isMobile) {
-            // Setup mobile controls
-            const joystickZone = document.getElementById('joystickZone');
-            const shootButton = document.getElementById('shootButton');
+    bindEvents() {
+        // Mouse movement for rotation and position
+        this.canvas.addEventListener('mousemove', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouseX = e.clientX - rect.left;
+            this.mouseY = e.clientY - rect.top;
             
-            if (joystickZone && shootButton) {
-                // Create joystick
-                this.joystick = nipplejs.create({
-                    zone: joystickZone,
-                    mode: 'static',
-                    position: { left: '60px', bottom: '60px' },
-                    color: 'white',
-                    size: 120
-                });
-
-                // Joystick events
-                this.joystick.on('move', (evt, data) => {
-                    const angle = data.angle.radian;
-                    const force = Math.min(data.force, 1);
-                    this.player.velocityX = Math.cos(angle) * this.player.speed * force;
-                    this.player.velocityY = Math.sin(angle) * this.player.speed * force;
-                    this.player.angle = angle + Math.PI/2;
-                });
-
-                this.joystick.on('end', () => {
-                    this.player.velocityX = 0;
-                    this.player.velocityY = 0;
-                });
-
-                // Shoot button event
-                shootButton.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.shoot();
-                });
-            }
-        } else {
-            // PC controls
-            this.canvas.addEventListener('mousemove', (e) => {
-                const rect = this.canvas.getBoundingClientRect();
-                this.mouseX = e.clientX - rect.left;
-                this.mouseY = e.clientY - rect.top;
-                
-                // Update player position instantly
-                this.player.x = this.mouseX - this.player.width / 2;
-                this.player.y = this.mouseY - this.player.height / 2;
-                
-                // Keep player within canvas bounds
-                if (this.player.x < 0) this.player.x = 0;
-                if (this.player.x > this.width - this.player.width) {
-                    this.player.x = this.width - this.player.width;
-                }
-                if (this.player.y < 0) this.player.y = 0;
-                if (this.player.y > this.height - this.player.height) {
-                    this.player.y = this.height - this.player.height;
-                }
-                
-                // Calculate angle between player and cursor
-                const dx = this.mouseX - (this.player.x + this.player.width / 2);
-                const dy = this.mouseY - (this.player.y + this.player.height / 2);
-                this.player.angle = Math.atan2(dy, dx) + Math.PI / 2;
-            });
-
-            this.canvas.addEventListener('mousedown', (e) => {
-                if (e.button === 0) { // Left click
-                    this.shoot();
-                }
-            });
-        }
-
-        // Add restart game event
-        const restartButton = document.getElementById('restartGame');
-        if (restartButton) {
-            restartButton.addEventListener('click', () => this.startGame());
-        }
-    }
-
-    updatePlayerPosition() {
-        if (this.isMobile) {
-            // Update position based on joystick
-            this.player.x += this.player.velocityX;
-            this.player.y += this.player.velocityY;
-
-            // Keep player within bounds
+            // Update player position instantly
+            this.player.x = this.mouseX - this.player.width / 2;
+            this.player.y = this.mouseY - this.player.height / 2;
+            
+            // Keep player within canvas bounds
             if (this.player.x < 0) this.player.x = 0;
             if (this.player.x > this.width - this.player.width) {
                 this.player.x = this.width - this.player.width;
@@ -198,12 +106,23 @@ class Game {
             if (this.player.y > this.height - this.player.height) {
                 this.player.y = this.height - this.player.height;
             }
-        }
+            
+            // Calculate angle between player and cursor for rotation only
+            const dx = this.mouseX - (this.player.x + this.player.width / 2);
+            const dy = this.mouseY - (this.player.y + this.player.height / 2);
+            this.player.angle = Math.atan2(dy, dx) + Math.PI / 2;
+        });
+
+        // Mouse click for shooting
+        this.canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0) { // Left click
+                this.shoot();
+            }
+        });
     }
 
     startGame() {
         this.score = 0;
-        this.scoreElement.textContent = 'Score: 0';
         this.letters = [];
         this.bullets = [];
         this.healthOrbs = [];
@@ -212,54 +131,20 @@ class Game {
         this.boss = null;
         this.gameOver = false;
         this.player.lives = 3;
+        this.startButton.style.display = 'none';
         this.gameOverElement.style.display = 'none';
         this.bossHealthElement.style.display = 'none';
+        document.getElementById('playerName').value = '';
         this.lastHealthOrbSpawn = Date.now();
         this.lastSpikeOrbSpawn = Date.now();
         this.lastTargetSpawn = Date.now();
         this.selectNewTarget();
-        this.updateLivesDisplay();
-    }
-
-    resetGame() {
-        // Reset all game state
-        this.score = 0;
-        this.letters = [];
-        this.bullets = [];
-        this.healthOrbs = [];
-        this.spikeOrbs = [];
-        this.bossBullets = [];
-        this.boss = null;
-        this.gameOver = false;
-        this.player.lives = 3;
-        this.player.x = this.canvas.width / 2;
-        this.player.y = this.canvas.height - 50;
-        this.lastHealthOrbSpawn = Date.now();
-        this.lastSpikeOrbSpawn = Date.now();
-        this.lastTargetSpawn = Date.now();
-        
-        // Clear UI elements
-        this.gameOverElement.style.display = 'none';
-        this.bossHealthElement.style.display = 'none';
-        this.scoreElement.textContent = 'Score: 0';
-        this.playerNameInput.value = '';
-        
-        // Re-enable controls
-        if (this.isMobile) {
-            document.getElementById('mobileControls').style.opacity = '1';
-            document.getElementById('mobileControls').style.pointerEvents = 'auto';
-        }
-        
-        // Reset player state
-        this.updateLivesDisplay();
-        this.selectNewTarget();
+        this.update();
     }
 
     selectNewTarget() {
         this.currentTarget = hijaiyahLetters[Math.floor(Math.random() * hijaiyahLetters.length)];
-        this.targetElement.textContent = this.currentTarget.trans;
-        // Add rotation animation to target text
-        this.targetElement.style.animation = 'rotate 4s linear infinite';
+        document.getElementById('target').textContent = this.currentTarget.trans;
     }
 
     shoot() {
@@ -322,45 +207,27 @@ class Game {
         }
     }
 
-    checkBossSpawn() {
-        if (!this.boss) {
-            // First boss at score 50, then at 150, 250, 350, etc.
-            const firstBossScore = 50;
-            const subsequentInterval = 100;
-            
-            if (this.score === firstBossScore || 
-                (this.score > firstBossScore && 
-                 (this.score - firstBossScore) % subsequentInterval === 0)) {
-                
-                this.spawnBoss();
-            }
-        }
-    }
-
     spawnBoss() {
-        const bossSize = 100;
         this.boss = {
-            x: this.canvas.width / 2 - bossSize / 2,
-            y: 50,
-            width: bossSize,
-            height: bossSize,
+            x: this.width / 4,
+            y: 100,
+            width: this.width / 2,
+            height: 120,
             health: 5,
             maxHealth: 5,
-            lastShot: Date.now(),
-            shootInterval: 2000, // Shoot every 2 seconds
-            bulletSpeed: 5
+            dx: 2,
+            dy: 1,
+            lastShot: 0,
+            shotInterval: 1000
         };
         this.bossHealthElement.style.display = 'block';
         this.updateBossHealth();
     }
 
     updateBossHealth() {
-        if (this.boss) {
-            const healthPercentage = (this.boss.health / this.boss.maxHealth) * 100;
-            const healthBar = this.bossHealthElement.querySelector('#bossHealthBar div');
-            healthBar.style.width = `${healthPercentage}%`;
-            document.getElementById('bossHealthText').textContent = `Boss HP: ${this.boss.health}/${this.boss.maxHealth}`;
-        }
+        const percentage = (this.boss.health / this.boss.maxHealth) * 100;
+        this.bossHealthBarElement.style.width = percentage + '%';
+        this.bossHealthTextElement.textContent = `Boss HP: ${this.boss.health}/${this.boss.maxHealth}`;
     }
 
     drawFuturisticSpaceship(x, y, width, height) {
@@ -523,7 +390,7 @@ class Game {
 
         // Shoot bullets
         const currentTime = Date.now();
-        if (currentTime - this.boss.lastShot > this.boss.shootInterval) {
+        if (currentTime - this.boss.lastShot > this.boss.shotInterval) {
             const weaponPoints = [
                 { x: this.boss.x + this.boss.width * 0.2, y: this.boss.y + this.boss.height * 0.6 },
                 { x: this.boss.x + this.boss.width * 0.4, y: this.boss.y + this.boss.height * 0.7 },
@@ -550,14 +417,14 @@ class Game {
     update() {
         if (this.gameOver) return;
 
-        // Update player position for mobile
-        this.updatePlayerPosition();
-
         this.ctx.clearRect(0, 0, this.width, this.height);
         
         const currentTime = Date.now();
 
-        this.checkBossSpawn();
+        // Check for boss spawn
+        if (this.score > 0 && this.score % 50 === 0 && !this.boss) {
+            this.spawnBoss();
+        }
 
         // Spawn target letter every 5 seconds
         if (currentTime - this.lastTargetSpawn > this.targetSpawnInterval) {
@@ -837,89 +704,42 @@ class Game {
                rect1.y + rect1.height > rect2.y;
     }
 
+    updateLeaderboardDisplay() {
+        const leaderboardDiv = document.getElementById('leaderboard');
+        const topScores = this.leaderboard
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 5);
+        
+        let html = 'Top Scores:<br><br>';
+        if (topScores.length === 0) {
+            html += 'No scores yet!';
+        } else {
+            html += topScores
+                .map((entry, index) => `${index + 1}. ${entry.name}: ${entry.score}`)
+                .join('<br>');
+        }
+        html += '<br><br>';
+        leaderboardDiv.innerHTML = html;
+    }
+
     submitScore() {
-        const playerName = this.playerNameInput.value.trim();
-        if (!playerName) {
-            alert('Please enter your name!');
-            return;
+        const nameInput = document.getElementById('playerName');
+        const name = nameInput.value.trim();
+        if (name) {
+            this.leaderboard.push({ name, score: this.score });
+            this.leaderboard.sort((a, b) => b.score - a.score);
+            if (this.leaderboard.length > 10) {
+                this.leaderboard.length = 10;
+            }
+            localStorage.setItem('leaderboard', JSON.stringify(this.leaderboard));
+            this.updateLeaderboardDisplay();
+            nameInput.value = '';
+            document.getElementById('submitScore').disabled = true;
         }
-
-        const newScore = {
-            name: playerName,
-            score: this.score,
-            date: new Date().toISOString()
-        };
-
-        this.highScores.push(newScore);
-        this.highScores.sort((a, b) => b.score - a.score);
-        this.highScores = this.highScores.slice(0, 10); // Keep only top 10
-        localStorage.setItem('highScores', JSON.stringify(this.highScores));
-        this.updateLeaderboard();
-    }
-
-    updateLeaderboard() {
-        this.leaderboardEntries.innerHTML = '';
-        this.highScores.forEach((entry, index) => {
-            const div = document.createElement('div');
-            div.className = 'leaderboard-entry';
-            div.innerHTML = `
-                <span>${index + 1}. ${entry.name}</span>
-                <span>${entry.score}</span>
-            `;
-            this.leaderboardEntries.appendChild(div);
-        });
-    }
-
-    endGame() {
-        this.gameOver = true;
-        const finalScoreElement = document.getElementById('finalScore');
-        finalScoreElement.textContent = this.score;
-        this.gameOverElement.style.display = 'block';
-        this.updateLeaderboard();
-        
-        // Disable controls
-        if (this.isMobile) {
-            document.getElementById('mobileControls').style.opacity = '0.3';
-            document.getElementById('mobileControls').style.pointerEvents = 'none';
-        }
-    }
-
-    resetGame() {
-        // Reset all game state
-        this.score = 0;
-        this.letters = [];
-        this.bullets = [];
-        this.healthOrbs = [];
-        this.spikeOrbs = [];
-        this.bossBullets = [];
-        this.boss = null;
-        this.gameOver = false;
-        this.player.lives = 3;
-        this.player.x = this.canvas.width / 2;
-        this.player.y = this.canvas.height - 50;
-        this.lastHealthOrbSpawn = Date.now();
-        this.lastSpikeOrbSpawn = Date.now();
-        this.lastTargetSpawn = Date.now();
-        
-        // Clear UI elements
-        this.gameOverElement.style.display = 'none';
-        this.bossHealthElement.style.display = 'none';
-        this.scoreElement.textContent = 'Score: 0';
-        this.playerNameInput.value = '';
-        
-        // Re-enable controls
-        if (this.isMobile) {
-            document.getElementById('mobileControls').style.opacity = '1';
-            document.getElementById('mobileControls').style.pointerEvents = 'auto';
-        }
-        
-        // Reset player state
-        this.updateLivesDisplay();
-        this.selectNewTarget();
     }
 }
 
-// Initialize game when window loads
-window.addEventListener('load', () => {
+// Start the game when the page loads
+window.onload = () => {
     new Game();
-});
+};

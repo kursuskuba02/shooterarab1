@@ -5,7 +5,7 @@ const hijaiyahLetters = [
     { arabic: 'ت', trans: 'ta' },
     { arabic: 'ث', trans: 'tsa' },
     { arabic: 'ج', trans: 'jim' },
-    { arabic: 'ح', trans: 'cha' },
+    { arabic: 'ح', trans: 'ha' },
     { arabic: 'خ', trans: 'kha' },
     { arabic: 'د', trans: 'dal' },
     { arabic: 'ذ', trans: 'dzal' },
@@ -103,10 +103,9 @@ class Game {
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
         if (this.isMobile) {
-            this.scale = 1.0;
-            this.minScale = 0.5;
-            this.maxScale = 1.5;
-            this.initZoomControls();
+            this.mobileSpeed = 8; // Increased speed for mobile
+            this.player.x = this.width / 2;
+            this.player.y = this.height - 100;
         }
 
         // Initialize background
@@ -120,23 +119,6 @@ class Game {
                 x: this.width / 2,
                 y: this.height / 2
             };
-            
-            // Setup fullscreen handling for mobile only
-            const startScreen = document.getElementById('startScreen');
-            const fullscreenButton = document.getElementById('fullscreenButton');
-            
-            fullscreenButton.addEventListener('click', () => {
-                const gameContainer = document.getElementById('gameContainer');
-                if (gameContainer.requestFullscreen) {
-                    gameContainer.requestFullscreen();
-                } else if (gameContainer.webkitRequestFullscreen) {
-                    gameContainer.webkitRequestFullscreen();
-                } else if (gameContainer.msRequestFullscreen) {
-                    gameContainer.msRequestFullscreen();
-                }
-                startScreen.style.display = 'none';
-                this.initializeGame();
-            });
         } else {
             // On desktop, start game immediately
             this.initializeGame();
@@ -182,10 +164,32 @@ class Game {
     }
 
     initializeGame() {
+        if (this.isMobile) {
+            // Show fullscreen button for mobile only
+            const fullscreenButton = document.getElementById('fullscreenButton');
+            fullscreenButton.style.display = 'block';
+            
+            fullscreenButton.addEventListener('click', () => {
+                fullscreenButton.style.display = 'none';
+                this.startGame();
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                }
+            });
+        } else {
+            // Start game immediately on desktop
+            this.startGame();
+        }
+    }
+
+    startGame() {
         // Initialize game state
         this.selectNewTarget();
-        this.updateLivesDisplay();
-        this.startGame();
+        this.gameLoop();
+        
+        if (this.isMobile) {
+            this.initMobileControls();
+        }
     }
 
     gameLoop() {
@@ -235,30 +239,6 @@ class Game {
             this.drawBoss();
             this.drawBossBullets();
         }
-    }
-
-    startGame() {
-        this.score = 0;
-        this.scoreElement.textContent = 'Score: 0';
-        this.letters = [];
-        this.bullets = [];
-        this.healthOrbs = [];
-        this.spikeOrbs = [];
-        this.bossBullets = [];
-        this.boss = null;
-        this.gameOver = false;
-        this.player.lives = 3;
-        this.gameOverElement.style.display = 'none';
-        this.bossHealthElement.style.display = 'none';
-        this.lastHealthOrbSpawn = Date.now();
-        this.lastSpikeOrbSpawn = Date.now();
-        this.lastTargetSpawn = Date.now();
-        this.lastRandomSpawn = Date.now();
-        this.selectNewTarget();
-        this.updateLivesDisplay();
-
-        // Start the game loop
-        this.gameLoop();
     }
 
     updateDifficulty() {
@@ -906,6 +886,7 @@ class Game {
     }
 
     initMobileControls() {
+        // Initialize joystick
         const options = {
             zone: document.getElementById('joystickZone'),
             mode: 'static',
@@ -918,32 +899,45 @@ class Game {
         
         const manager = nipplejs.create(options);
         
+        // Handle joystick movement
         manager.on('move', (evt, data) => {
             const angle = data.angle.radian;
             const force = Math.min(data.force, 2.0); // Cap the force
             
-            // Calculate velocity based on joystick position
-            this.player.vx = Math.cos(angle) * (force * this.playerSpeed);
-            this.player.vy = -Math.sin(angle) * (force * this.playerSpeed);
+            // Calculate velocity with increased speed
+            this.player.vx = Math.cos(angle) * (force * this.mobileSpeed);
+            this.player.vy = -Math.sin(angle) * (force * this.mobileSpeed);
         });
 
         manager.on('end', () => {
             this.player.vx = 0;
             this.player.vy = 0;
         });
+
+        // Initialize shoot button
+        const shootButton = document.getElementById('shootButton');
+        shootButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.shoot();
+        });
     }
 
     updatePlayerPosition() {
         if (this.isMobile) {
-            // Increased smoothing factor for more responsive movement
-            const smoothing = 0.3; // Increased from 0.2
-            this.player.x += (this.playerTarget.x - this.player.x) * smoothing;
-            this.player.y += (this.playerTarget.y - this.player.y) * smoothing;
-
-            // Keep player within canvas bounds
-            this.player.x = Math.max(0, Math.min(this.width - this.player.width, this.player.x));
-            this.player.y = Math.max(0, Math.min(this.height - this.player.height, this.player.y));
+            // Direct position update for mobile
+            this.player.x += this.player.vx;
+            this.player.y += this.player.vy;
+        } else {
+            // Existing keyboard controls for desktop
+            if (this.keys.ArrowLeft || this.keys.a) this.player.x -= this.playerSpeed;
+            if (this.keys.ArrowRight || this.keys.d) this.player.x += this.playerSpeed;
+            if (this.keys.ArrowUp || this.keys.w) this.player.y -= this.playerSpeed;
+            if (this.keys.ArrowDown || this.keys.s) this.player.y += this.playerSpeed;
         }
+
+        // Keep player within bounds
+        this.player.x = Math.max(this.player.width / 2, Math.min(this.width - this.player.width / 2, this.player.x));
+        this.player.y = Math.max(this.player.height / 2, Math.min(this.height - this.player.height / 2, this.player.y));
     }
 
     resetGame() {

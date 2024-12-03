@@ -36,23 +36,37 @@ class Game {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         
+        // Initialize stars array first
+        this.stars = [];
+        
         // Detect mobile device
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
         // Set canvas size based on platform
-        if (this.isMobile) {
-            // Mobile: 20:9 ratio
-            const screenWidth = window.innerWidth;
-            this.canvas.width = screenWidth;
-            this.canvas.height = (screenWidth * 9) / 20;
-        } else {
-            // Desktop: 16:9 ratio
-            this.canvas.width = 1280; // Standard 16:9 width
-            this.canvas.height = 720; // Standard 16:9 height
-        }
-        
-        this.width = this.canvas.width;
-        this.height = this.canvas.height;
+        const updateCanvasSize = () => {
+            const container = document.getElementById('gameContainer');
+            const containerStyle = window.getComputedStyle(container);
+            const containerWidth = parseInt(containerStyle.width);
+            const containerHeight = parseInt(containerStyle.height);
+            
+            this.canvas.width = containerWidth;
+            this.canvas.height = containerHeight;
+            this.width = this.canvas.width;
+            this.height = this.canvas.height;
+            
+            // Update player position when canvas is resized
+            if (this.player) {
+                this.player.x = Math.min(this.player.x, this.width - this.player.width);
+                this.player.y = Math.min(this.player.y, this.height - this.player.height);
+            }
+        };
+
+        // Initial size update
+        updateCanvasSize();
+
+        // Update canvas size when window is resized or orientation changes
+        window.addEventListener('resize', updateCanvasSize);
+        window.addEventListener('orientationchange', updateCanvasSize);
         
         this.scoreElement = document.getElementById('score');
         this.targetElement = document.getElementById('targetText');
@@ -98,7 +112,9 @@ class Game {
             height: 50,
             lives: 3,
             dx: 0,
-            dy: 0
+            dy: 0,
+            vx: 0,
+            vy: 0
         };
 
         // Initialize hearts display
@@ -108,33 +124,16 @@ class Game {
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
         if (this.isMobile) {
-            this.mobileSpeed = 8; // Increased speed for mobile
-            this.player.x = this.width / 2;
+            this.mobileSpeed = 5; // Adjusted speed for better control
             this.player.y = this.height - 100;
-        }
-
-        // Initialize background
-        this.stars = [];
-        this.createStarfield();
-
-        // Mobile-specific properties
-        if (this.isMobile) {
-            this.playerSpeed = 8;
-            this.playerTarget = {
-                x: this.width / 2,
-                y: this.height / 2
-            };
-        } else {
-            // On desktop, start game immediately
-            this.initializeGame();
-        }
-
-        // Initialize controls based on device
-        if (this.isMobile) {
             this.initMobileControls();
         } else {
             this.initDesktopControls();
         }
+        
+        // Start game loop for both mobile and desktop
+        this.initializeGame();
+        this.gameLoop();
     }
 
     initZoomControls() {
@@ -171,10 +170,6 @@ class Game {
     initializeGame() {
         // Start game immediately for both mobile and desktop
         this.startGame();
-        
-        if (this.isMobile) {
-            this.initMobileControls();
-        }
     }
 
     startGame() {
@@ -193,10 +188,6 @@ class Game {
         
         this.selectNewTarget();
         this.gameLoop();
-        
-        if (this.isMobile) {
-            this.initMobileControls();
-        }
     }
 
     gameLoop() {
@@ -893,13 +884,20 @@ class Game {
     }
 
     initMobileControls() {
+        const joystickZone = document.getElementById('joystickZone');
+        const shootButton = document.getElementById('shootButton');
+        
+        // Show mobile controls
+        if (joystickZone) joystickZone.style.display = 'block';
+        if (shootButton) shootButton.style.display = 'block';
+        
         // Initialize joystick
         const options = {
-            zone: document.getElementById('joystickZone'),
+            zone: joystickZone,
             mode: 'static',
-            position: { left: '50%', top: '50%' },
+            position: { left: '80px', bottom: '80px' },
             size: 120,
-            color: 'white',
+            color: '#00ff00',
             lockX: false,
             lockY: false
         };
@@ -909,9 +907,8 @@ class Game {
         // Handle joystick movement
         manager.on('move', (evt, data) => {
             const angle = data.angle.radian;
-            const force = Math.min(data.force, 2.0); // Cap the force
+            const force = Math.min(data.force, 2.0);
             
-            // Calculate velocity with increased speed
             this.player.vx = Math.cos(angle) * (force * this.mobileSpeed);
             this.player.vy = -Math.sin(angle) * (force * this.mobileSpeed);
         });
@@ -922,11 +919,17 @@ class Game {
         });
 
         // Initialize shoot button
-        const shootButton = document.getElementById('shootButton');
-        shootButton.addEventListener('touchstart', (e) => {
+        if (shootButton) {
+            shootButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.shoot();
+            });
+        }
+        
+        // Prevent default touch behavior
+        document.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            this.shoot();
-        });
+        }, { passive: false });
     }
 
     updatePlayerPosition() {
@@ -983,18 +986,26 @@ class Game {
     }
 
     createStarfield() {
+        // Clear existing stars first
+        this.stars = [];
+        
         // Create 100 stars with random positions and sizes
         for (let i = 0; i < 100; i++) {
             this.stars.push({
                 x: Math.random() * this.canvas.width,
                 y: Math.random() * this.canvas.height,
                 size: Math.random() * 2,
-                speed: Math.random() * 0.5
+                speed: Math.random() * 0.5 + 0.1 // Ensure minimum speed
             });
         }
     }
 
     updateStars() {
+        if (!this.stars || !Array.isArray(this.stars)) {
+            this.createStarfield();
+            return;
+        }
+
         this.stars.forEach(star => {
             star.y += star.speed;
             if (star.y > this.canvas.height) {
@@ -1005,6 +1016,8 @@ class Game {
     }
 
     drawBackground() {
+        if (!this.ctx) return;
+
         // Create space gradient
         const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
         gradient.addColorStop(0, '#000033');
@@ -1015,12 +1028,14 @@ class Game {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         // Draw stars
-        this.ctx.fillStyle = '#FFFFFF';
-        this.stars.forEach(star => {
-            this.ctx.beginPath();
-            this.ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-            this.ctx.fill();
-        });
+        if (this.stars && Array.isArray(this.stars)) {
+            this.ctx.fillStyle = '#FFFFFF';
+            this.stars.forEach(star => {
+                this.ctx.beginPath();
+                this.ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                this.ctx.fill();
+            });
+        }
     }
 
     drawFuturisticSpaceship(x, y, width, height) {

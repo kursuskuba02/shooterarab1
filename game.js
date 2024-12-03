@@ -222,6 +222,26 @@ class Game {
         document.getElementById('submitScore').addEventListener('click', () => this.submitScore());
         document.getElementById('restartGame').addEventListener('click', () => this.startGame());
         this.updateLeaderboardDisplay();
+
+        // Handle orientation message dismissal
+        const dismissButton = document.getElementById('dismissOrientation');
+        if (dismissButton) {
+            dismissButton.addEventListener('click', () => {
+                const orientationMessage = document.getElementById('orientation-message');
+                if (orientationMessage) {
+                    orientationMessage.style.display = 'none';
+                }
+            });
+        }
+
+        // Only show orientation message on mobile devices
+        const orientationMessage = document.getElementById('orientation-message');
+        if (orientationMessage) {
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (!isMobile) {
+                orientationMessage.style.display = 'none';
+            }
+        }
     }
 
     resizeCanvas() {

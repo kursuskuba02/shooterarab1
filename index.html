@@ -1,27 +1,63 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hijaiyah Space Shooter</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>هجائية الفضاء</title>
     <style>
-        body {
+        * {
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a1a;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            min-height: 100vh;
-            background: #000033;
-            font-family: Arial, sans-serif;
+            justify-content: center;
         }
-        #gameContainer {
+
+        #orientation-message {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            text-align: center;
+            padding-top: 40vh;
+            z-index: 1000;
+            font-size: 24px;
+        }
+
+        #game-container {
             position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 100vw;
+            max-height: 100vh;
+            margin: auto;
+            background: #1a1a1a;
+            overflow: hidden;
         }
+
         #gameCanvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             border: 2px solid #ffffff;
             background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMwMDAwMjAiLz4KPGcgZmlsbD0iI2ZmZiI+CjxjaXJjbGUgY3g9IjEwIiBjeT0iMTAiIHI9IjEiIG9wYWNpdHk9IjAuMyIvPgo8Y2lyY2xlIGN4PSI0MCIgY3k9IjIwIiByPSIxLjUiIG9wYWNpdHk9IjAuNCIvPgo8Y2lyY2xlIGN4PSI3MCIgY3k9IjUwIiByPSIxIiBvcGFjaXR5PSIwLjMiLz4KPGNpcmNsZSBjeD0iMTAwIiBjeT0iMzAiIHI9IjIiIG9wYWNpdHk9IjAuNSIvPgo8Y2lyY2xlIGN4PSIxMzAiIGN5PSI3MCIgcj0iMSIgb3BhY2l0eT0iMC4zIi8+CjxjaXJjbGUgY3g9IjE2MCIgY3k9IjQwIiByPSIxLjUiIG9wYWNpdHk9IjAuNCIvPgo8Y2lyY2xlIGN4PSIxOTAiIGN5PSI5MCIgcj0iMSIgb3BhY2l0eT0iMC4zIi8+CjxjaXJjbGUgY3g9IjIwIiBjeT0iMTIwIiByPSIyIiBvcGFjaXR5PSIwLjUiLz4KPGNpcmNsZSBjeD0iNTAiIGN5PSIxNTAiIHI9IjEiIG9wYWNpdHk9IjAuMyIvPgo8Y2lyY2xlIGN4PSI4MCIgY3k9IjE4MCIgcj0iMS41IiBvcGFjaXR5PSIwLjQiLz4KPGNpcmNsZSBjeD0iMTEwIiBjeT0iMTQwIiByPSIxIiBvcGFjaXR5PSIwLjMiLz4KPGNpcmNsZSBjeD0iMTQwIiBjeT0iMTcwIiByPSIyIiBvcGFjaXR5PSIwLjUiLz4KPGNpcmNsZSBjeD0iMTcwIiBjeT0iMTMwIiByPSIxIiBvcGFjaXR5PSIwLjMiLz4KPC9nPgo8L3N2Zz4=');
             image-rendering: pixelated;
         }
+
         #score {
             position: absolute;
             top: 10px;
@@ -29,6 +65,7 @@
             color: white;
             font-size: 20px;
         }
+
         #lives {
             position: absolute;
             top: 40px;
@@ -36,17 +73,20 @@
             display: flex;
             gap: 5px;
         }
+
         .heart {
             width: 25px;
             height: 25px;
             position: relative;
             animation: pulse 1.5s ease infinite;
         }
+
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.1); }
             100% { transform: scale(1); }
         }
+
         .heart::before,
         .heart::after {
             content: '';
@@ -57,16 +97,19 @@
             border-radius: 12.5px 12.5px 0 0;
             background-color: #ff3366;
         }
+
         .heart::before {
             left: 12.5px;
             transform: rotate(-45deg);
             transform-origin: 0 100%;
         }
+
         .heart::after {
             left: 0;
             transform: rotate(45deg);
             transform-origin: 100% 100%;
         }
+
         #targetContainer {
             position: absolute;
             top: 10px;
@@ -81,6 +124,7 @@
             align-items: center;
             animation: scan 4s linear infinite;
         }
+
         @keyframes scan {
             from {
                 transform: rotate(0deg);
@@ -89,6 +133,7 @@
                 transform: rotate(360deg);
             }
         }
+
         #targetInner {
             width: 80px;
             height: 80px;
@@ -100,6 +145,7 @@
             align-items: center;
             position: relative;
         }
+
         #targetInner::before {
             content: '';
             position: absolute;
@@ -108,6 +154,7 @@
             background: #0f0;
             animation: scanline 2s linear infinite;
         }
+
         @keyframes scanline {
             from {
                 transform: rotate(0deg);
@@ -116,6 +163,7 @@
                 transform: rotate(360deg);
             }
         }
+
         #target {
             color: #0f0;
             font-size: 24px;
@@ -125,6 +173,7 @@
             border-radius: 5px;
             z-index: 1;
         }
+
         .boss-health {
             position: absolute;
             top: 20px;
@@ -160,6 +209,7 @@
             font-weight: bold;
             text-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
         }
+
         #gameOver {
             display: none;
             position: absolute;
@@ -174,22 +224,26 @@
             border-radius: 10px;
             min-width: 300px;
         }
+
         #leaderboard {
             margin-top: 20px;
             color: white;
             font-size: 18px;
             text-align: center;
         }
+
         #leaderboardForm {
             margin-top: 20px;
             font-size: 24px;
         }
+
         #playerName {
             padding: 10px;
             font-size: 18px;
             margin: 10px 0;
             width: 200px;
         }
+
         .gameButton {
             padding: 10px 20px;
             font-size: 18px;
@@ -200,28 +254,105 @@
             border-radius: 5px;
             cursor: pointer;
         }
+
         .gameButton:hover {
             background: #45a049;
         }
+
         #startButton {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
         }
+
+        /* Mobile Controls */
+        .mobile-controls {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 150px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .joystick-area {
+            position: absolute;
+            left: 30px;
+            bottom: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            pointer-events: auto;
+        }
+
+        .joystick {
+            position: absolute;
+            left: 35px;
+            bottom: 35px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .shoot-button {
+            position: absolute;
+            right: 30px;
+            bottom: 30px;
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid rgba(255, 0, 0, 0.4);
+            border-radius: 50%;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            text-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
+        }
+
+        .shoot-button:active {
+            background: rgba(255, 0, 0, 0.4);
+            transform: scale(0.95);
+        }
+
+        @media (orientation: portrait) and (max-width: 768px) {
+            #orientation-message {
+                display: block;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: block;
+            }
+        }
     </style>
 </head>
 <body>
-    <div id="gameContainer">
+    <div id="orientation-message">
+        يرجى دوران جهازك إلى وضع الأفقي للحصول على أفضل تجربة
+        <br>
+        <span style="font-size: 40px;">📱⟳</span>
+    </div>
+    <div id="game-container">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
-        <div id="score">Score: 0</div>
+        <div id="score">النتيجة: 0</div>
         <div id="lives">
             <div class="heart"></div>
             <div class="heart"></div>
             <div class="heart"></div>
         </div>
         <div id="bossHealth" class="boss-health" style="display: none;">
-            <div id="bossHealthText">Boss HP: 5/5</div>
+            <div id="bossHealthText">صحة الزعيم: 5/5</div>
             <div class="boss-health-bar">
                 <div id="bossHealthBar"></div>
             </div>
@@ -232,16 +363,22 @@
             </div>
         </div>
         <div id="gameOver">
-            Game Over!
-            <div id="leaderboard">Top Scores:<br></div>
+            انتهت اللعبة!
+            <div id="leaderboard">أعلى النتائج:<br></div>
             <div id="leaderboardForm">
-                <input type="text" id="playerName" placeholder="Enter your name" maxlength="15">
+                <input type="text" id="playerName" placeholder="أدخل اسمك" maxlength="15">
                 <br>
-                <button class="gameButton" id="submitScore">Submit Score</button>
-                <button class="gameButton" id="restartGame">New Game</button>
+                <button class="gameButton" id="submitScore">إرسال النتيجة</button>
+                <button class="gameButton" id="restartGame">لعبة جديدة</button>
             </div>
         </div>
-        <button id="startButton" class="gameButton">Start Game</button>
+        <button id="startButton" class="gameButton">بدء اللعبة</button>
+    </div>
+    <div class="mobile-controls">
+        <div class="joystick-area">
+            <div class="joystick"></div>
+        </div>
+        <div class="shoot-button">🔥</div>
     </div>
     <script src="game.js"></script>
 </body>

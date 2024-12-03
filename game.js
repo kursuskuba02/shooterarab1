@@ -64,7 +64,7 @@ class Game {
         // Add event listeners for game over buttons
         this.submitScoreButton.addEventListener('click', () => this.submitScore());
         this.restartGameButton.addEventListener('click', () => this.resetGame());
-        
+
         // Game state
         this.score = 0;
         this.letters = [];
@@ -102,13 +102,37 @@ class Game {
         // Detect if mobile device
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+        // Initialize background
+        this.stars = [];
+        this.createStarfield();
+
         // Mobile-specific properties
         if (this.isMobile) {
-            this.playerSpeed = 5;
+            this.playerSpeed = 8;
             this.playerTarget = {
                 x: this.width / 2,
                 y: this.height / 2
             };
+            
+            // Setup fullscreen handling for mobile only
+            const startScreen = document.getElementById('startScreen');
+            const fullscreenButton = document.getElementById('fullscreenButton');
+            
+            fullscreenButton.addEventListener('click', () => {
+                const gameContainer = document.getElementById('gameContainer');
+                if (gameContainer.requestFullscreen) {
+                    gameContainer.requestFullscreen();
+                } else if (gameContainer.webkitRequestFullscreen) {
+                    gameContainer.webkitRequestFullscreen();
+                } else if (gameContainer.msRequestFullscreen) {
+                    gameContainer.msRequestFullscreen();
+                }
+                startScreen.style.display = 'none';
+                this.initializeGame();
+            });
+        } else {
+            // On desktop, start game immediately
+            this.initializeGame();
         }
 
         // Initialize controls based on device
@@ -117,12 +141,12 @@ class Game {
         } else {
             this.initDesktopControls();
         }
+    }
 
-        // Add background properties
-        this.stars = [];
-        this.createStarfield();
-
-        // Start game
+    initializeGame() {
+        // Initialize game state
+        this.selectNewTarget();
+        this.updateLivesDisplay();
         this.startGame();
     }
 
@@ -844,7 +868,7 @@ class Game {
     }
 
     initMobileControls() {
-        // Create joystick
+        // Create joystick with increased sensitivity
         const options = {
             zone: document.getElementById('joystickZone'),
             mode: 'static',
@@ -853,28 +877,31 @@ class Game {
             size: 120,
             restJoystick: true,
             lockX: false,
-            lockY: false
+            lockY: false,
+            maxMoveStick: 50  // Reduced for more sensitive movement
         };
 
         this.joystick = nipplejs.create(options);
 
         this.joystick.on('move', (evt, data) => {
-            const maxSpeed = this.playerSpeed;
-            const distance = Math.min(data.distance, 50); // Cap the distance
-            const speedFactor = distance / 50; // Convert to 0-1 range
+            const maxSpeed = this.playerSpeed * 2; // Double the speed for more responsive movement
+            const distance = Math.min(data.distance, 50);
+            const speedFactor = distance / 50;
             
-            // Calculate new position based on joystick angle and distance
-            this.playerTarget.x = this.player.x + (data.vector.x * maxSpeed * speedFactor);
-            this.playerTarget.y = this.player.y - (data.vector.y * maxSpeed * speedFactor);
+            // Calculate new position with increased speed
+            const deltaX = data.vector.x * maxSpeed * speedFactor;
+            const deltaY = -data.vector.y * maxSpeed * speedFactor;
+            
+            this.playerTarget.x = this.player.x + deltaX;
+            this.playerTarget.y = this.player.y + deltaY;
         });
 
         this.joystick.on('end', () => {
-            // Stop movement when joystick is released
             this.playerTarget.x = this.player.x;
             this.playerTarget.y = this.player.y;
         });
 
-        // Create shoot button
+        // Adjust shoot button position for better visibility
         if (!document.getElementById('shootButton')) {
             const shootButton = document.createElement('button');
             shootButton.id = 'shootButton';
@@ -890,8 +917,8 @@ class Game {
 
     updatePlayerPosition() {
         if (this.isMobile) {
-            // Smooth movement towards target position for mobile
-            const smoothing = 0.2;
+            // Increased smoothing factor for more responsive movement
+            const smoothing = 0.3; // Increased from 0.2
             this.player.x += (this.playerTarget.x - this.player.x) * smoothing;
             this.player.y += (this.playerTarget.y - this.player.y) * smoothing;
 

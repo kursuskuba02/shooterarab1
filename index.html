@@ -236,17 +236,79 @@
             background: #00cc00;
         }
 
+        .orientation-message {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            color: #fff;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            text-align: center;
+            padding: 20px;
+            flex-direction: column;
+        }
+
+        .orientation-icon {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            animation: rotate90 1.5s ease-in-out infinite;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ffffff"><path d="M0 0h24v24H0z" fill="none"/><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        @keyframes rotate90 {
+            0% { transform: rotate(0deg); }
+            20% { transform: rotate(90deg); }
+            80% { transform: rotate(90deg); }
+            100% { transform: rotate(0deg); }
+        }
+
         #joystickZone {
             position: fixed;
-            bottom: 20%;
-            left: 50%;
-            transform: translateX(-50%);
+            bottom: 100px;
+            left: 50px;
             width: 120px;
             height: 120px;
             z-index: 1000;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
         }
 
-        /* Mobile-specific styles */
+        #shootButton {
+            position: fixed;
+            bottom: 100px;
+            right: 50px;
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        @media (orientation: portrait) {
+            .orientation-message {
+                display: flex;
+            }
+            #gameContainer {
+                display: none;
+            }
+        }
+
         @media (max-width: 768px) {
             #gameContainer {
                 width: 100vw;
@@ -266,36 +328,12 @@
                 font-size: 16px;
             }
         }
-
-        .orientation-message {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: #000;
-            color: #fff;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            text-align: center;
-            padding: 20px;
-        }
-
-        @media (orientation: portrait) and (max-width: 800px) {
-            .orientation-message {
-                display: flex;
-            }
-            #gameContainer {
-                display: none;
-            }
-        }
     </style>
 </head>
 <body>
     <div class="orientation-message">
-        Please rotate your device to landscape mode to play the game
+        <div class="orientation-icon"></div>
+        <p>Please rotate your device to landscape mode to play</p>
     </div>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>

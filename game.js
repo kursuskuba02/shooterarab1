@@ -5,7 +5,7 @@ const hijaiyahLetters = [
     { arabic: 'ت', trans: 'ta' },
     { arabic: 'ث', trans: 'tsa' },
     { arabic: 'ج', trans: 'jim' },
-    { arabic: 'ح', trans: 'ha' },
+    { arabic: 'ح', trans: 'cha' },
     { arabic: 'خ', trans: 'kha' },
     { arabic: 'د', trans: 'dal' },
     { arabic: 'ذ', trans: 'dzal' },
@@ -102,6 +102,13 @@ class Game {
         // Detect if mobile device
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+        if (this.isMobile) {
+            this.scale = 1.0;
+            this.minScale = 0.5;
+            this.maxScale = 1.5;
+            this.initZoomControls();
+        }
+
         // Initialize background
         this.stars = [];
         this.createStarfield();
@@ -141,6 +148,37 @@ class Game {
         } else {
             this.initDesktopControls();
         }
+    }
+
+    initZoomControls() {
+        const zoomInBtn = document.getElementById('zoomInBtn');
+        const zoomOutBtn = document.getElementById('zoomOutBtn');
+        
+        zoomInBtn.addEventListener('click', () => {
+            this.scale = Math.min(this.scale + 0.1, this.maxScale);
+            this.updateGameScale();
+        });
+        
+        zoomOutBtn.addEventListener('click', () => {
+            this.scale = Math.max(this.scale - 0.1, this.minScale);
+            this.updateGameScale();
+        });
+    }
+
+    updateGameScale() {
+        const canvas = document.getElementById('gameCanvas');
+        const gameContainer = document.querySelector('.game-container');
+        
+        // Scale the game container
+        gameContainer.style.transform = `scale(${this.scale})`;
+        gameContainer.style.transformOrigin = 'center top';
+        
+        // Adjust container height to prevent scrolling
+        const newHeight = (window.innerHeight / this.scale);
+        gameContainer.style.height = `${newHeight}px`;
+        
+        // Update game dimensions
+        this.updateGameDimensions();
     }
 
     initializeGame() {
@@ -868,51 +906,31 @@ class Game {
     }
 
     initMobileControls() {
-        // Create joystick with increased sensitivity
         const options = {
             zone: document.getElementById('joystickZone'),
             mode: 'static',
-            position: { left: '50px', bottom: '100px' },
-            color: 'white',
+            position: { left: '50%', top: '50%' },
             size: 120,
-            restJoystick: true,
+            color: 'white',
             lockX: false,
-            lockY: false,
-            maxMoveStick: 50  // Reduced for more sensitive movement
+            lockY: false
         };
-
-        this.joystick = nipplejs.create(options);
-
-        this.joystick.on('move', (evt, data) => {
-            const maxSpeed = this.playerSpeed * 2; // Double the speed for more responsive movement
-            const distance = Math.min(data.distance, 50);
-            const speedFactor = distance / 50;
+        
+        const manager = nipplejs.create(options);
+        
+        manager.on('move', (evt, data) => {
+            const angle = data.angle.radian;
+            const force = Math.min(data.force, 2.0); // Cap the force
             
-            // Calculate new position with increased speed
-            const deltaX = data.vector.x * maxSpeed * speedFactor;
-            const deltaY = -data.vector.y * maxSpeed * speedFactor;
-            
-            this.playerTarget.x = this.player.x + deltaX;
-            this.playerTarget.y = this.player.y + deltaY;
+            // Calculate velocity based on joystick position
+            this.player.vx = Math.cos(angle) * (force * this.playerSpeed);
+            this.player.vy = -Math.sin(angle) * (force * this.playerSpeed);
         });
 
-        this.joystick.on('end', () => {
-            this.playerTarget.x = this.player.x;
-            this.playerTarget.y = this.player.y;
+        manager.on('end', () => {
+            this.player.vx = 0;
+            this.player.vy = 0;
         });
-
-        // Adjust shoot button position for better visibility
-        if (!document.getElementById('shootButton')) {
-            const shootButton = document.createElement('button');
-            shootButton.id = 'shootButton';
-            shootButton.innerHTML = '🎯';
-            document.body.appendChild(shootButton);
-
-            shootButton.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                this.shoot();
-            });
-        }
     }
 
     updatePlayerPosition() {

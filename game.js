@@ -33,6 +33,13 @@ const hijaiyahLetters = [
 
 class Game {
     constructor() {
+        this.width = 800;
+        this.height = 600;
+        this.canvas = document.getElementById('gameCanvas');
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+        this.ctx = this.canvas.getContext('2d');
+        
         // Get window dimensions for mobile
         if (this.isMobile) {
             this.width = window.innerWidth;
@@ -42,10 +49,6 @@ class Game {
             this.height = 600;
         }
         
-        this.canvas = document.getElementById('gameCanvas');
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
-        this.ctx = this.canvas.getContext('2d');
         this.scoreElement = document.getElementById('score');
         this.targetElement = document.getElementById('targetText');
         this.gameOverElement = document.getElementById('gameOver');
@@ -54,9 +57,14 @@ class Game {
         this.bossHealthTextElement = document.getElementById('bossHealthText');
         this.playerNameInput = document.getElementById('playerNameInput');
         this.submitScoreButton = document.getElementById('submitScore');
+        this.restartGameButton = document.getElementById('restartGame');
         this.leaderboardEntries = document.getElementById('leaderboardEntries');
         this.highScores = JSON.parse(localStorage.getItem('highScores') || '[]');
 
+        // Add event listeners for game over buttons
+        this.submitScoreButton.addEventListener('click', () => this.submitScore());
+        this.restartGameButton.addEventListener('click', () => this.resetGame());
+        
         // Game state
         this.score = 0;
         this.letters = [];
@@ -94,31 +102,20 @@ class Game {
         // Detect if mobile device
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-        // Add mouse position tracking with interpolation
-        this.mousePosition = {
-            x: this.width / 2,
-            y: this.height / 2
-        };
-        
-        this.playerTarget = {
-            x: this.width / 2,
-            y: this.height / 2
-        };
-
-        // Movement smoothing factor (0 = no smoothing, 1 = maximum smoothing)
-        this.smoothing = 0.85;
-
-        // Event listeners
-        this.submitScoreButton.addEventListener('click', () => this.submitScore());
-        document.getElementById('restartGame').addEventListener('click', () => {
-            this.resetGame();
-            this.startGame();
-        });
-
-        // Initialize controls
-        this.initControls();
+        // Mobile-specific properties
         if (this.isMobile) {
-            this.initJoystick();
+            this.playerSpeed = 5;
+            this.playerTarget = {
+                x: this.width / 2,
+                y: this.height / 2
+            };
+        }
+
+        // Initialize controls based on device
+        if (this.isMobile) {
+            this.initMobileControls();
+        } else {
+            this.initDesktopControls();
         }
 
         // Add background properties
@@ -282,8 +279,10 @@ class Game {
         // Update stars
         this.updateStars();
 
-        // Update player position
-        this.updatePlayerPosition();
+        // Only update player position for mobile
+        if (this.isMobile) {
+            this.updatePlayerPosition();
+        }
     }
 
     updateLetters() {
@@ -645,6 +644,9 @@ class Game {
         
         // Update display
         this.updateLeaderboard();
+        
+        // Disable submit button after submission
+        this.submitScoreButton.disabled = true;
     }
 
     updateLeaderboard() {
@@ -683,8 +685,13 @@ class Game {
             finalScoreElement.textContent = this.score;
         }
         
+        // Clear previous input
+        this.playerNameInput.value = '';
+        
         // Update leaderboard before showing game over screen
         this.updateLeaderboard();
+        
+        // Show game over screen
         this.gameOverElement.style.display = 'block';
     }
 
@@ -807,23 +814,27 @@ class Game {
         }
     }
 
-    initControls() {
+    initDesktopControls() {
         // Mouse movement
-        const updatePlayerPosition = (e) => {
+        this.canvas.addEventListener('mousemove', (e) => {
             const rect = this.canvas.getBoundingClientRect();
             
-            // Get canvas scale
+            // Calculate scale in case canvas is resized
             const scaleX = this.canvas.width / rect.width;
             const scaleY = this.canvas.height / rect.height;
             
-            // Update target position
-            this.playerTarget.x = (e.clientX - rect.left) * scaleX;
-            this.playerTarget.y = (e.clientY - rect.top) * scaleY;
-        };
+            // Get cursor position relative to canvas with scaling
+            const cursorX = (e.clientX - rect.left) * scaleX;
+            const cursorY = (e.clientY - rect.top) * scaleY;
+            
+            // Center the player exactly on the cursor
+            this.player.x = cursorX - (this.player.width / 2);
+            this.player.y = cursorY - (this.player.height / 2);
 
-        // Add both mousemove and pointermove for better response
-        this.canvas.addEventListener('mousemove', updatePlayerPosition, { passive: true });
-        this.canvas.addEventListener('pointermove', updatePlayerPosition, { passive: true });
+            // Keep player within canvas bounds
+            this.player.x = Math.max(0, Math.min(this.width - this.player.width, this.player.x));
+            this.player.y = Math.max(0, Math.min(this.height - this.player.height, this.player.y));
+        });
 
         // Shooting with mouse click
         this.canvas.addEventListener('click', (e) => {
@@ -832,68 +843,62 @@ class Game {
         });
     }
 
-    updatePlayerPosition() {
-        // Interpolate between current and target position
-        this.mousePosition.x = this.mousePosition.x + (this.playerTarget.x - this.mousePosition.x) * (1 - this.smoothing);
-        this.mousePosition.y = this.mousePosition.y + (this.playerTarget.y - this.mousePosition.y) * (1 - this.smoothing);
-
-        // Update player position to follow interpolated mouse position
-        this.player.x = this.mousePosition.x - (this.player.width / 2);
-        this.player.y = this.mousePosition.y - (this.player.height / 2);
-
-        // Keep player within canvas bounds
-        this.player.x = Math.max(0, Math.min(this.width - this.player.width, this.player.x));
-        this.player.y = Math.max(0, Math.min(this.height - this.player.height, this.player.y));
-    }
-
-    initJoystick() {
+    initMobileControls() {
+        // Create joystick
         const options = {
             zone: document.getElementById('joystickZone'),
             mode: 'static',
-            position: { left: '50%', bottom: '20%' },
+            position: { left: '50px', bottom: '100px' },
             color: 'white',
             size: 120,
-            restJoystick: true
+            restJoystick: true,
+            lockX: false,
+            lockY: false
         };
 
         this.joystick = nipplejs.create(options);
 
         this.joystick.on('move', (evt, data) => {
-            const speed = 5;
-            if (data.vector.y) {
-                this.player.dy = -data.vector.y * speed;
-            }
-            if (data.vector.x) {
-                this.player.dx = data.vector.x * speed;
-            }
+            const maxSpeed = this.playerSpeed;
+            const distance = Math.min(data.distance, 50); // Cap the distance
+            const speedFactor = distance / 50; // Convert to 0-1 range
+            
+            // Calculate new position based on joystick angle and distance
+            this.playerTarget.x = this.player.x + (data.vector.x * maxSpeed * speedFactor);
+            this.playerTarget.y = this.player.y - (data.vector.y * maxSpeed * speedFactor);
         });
 
         this.joystick.on('end', () => {
-            this.player.dx = 0;
-            this.player.dy = 0;
+            // Stop movement when joystick is released
+            this.playerTarget.x = this.player.x;
+            this.playerTarget.y = this.player.y;
         });
 
-        // Add shoot button for mobile
-        const shootButton = document.createElement('div');
-        shootButton.id = 'shootButton';
-        shootButton.style.position = 'fixed';
-        shootButton.style.right = '20px';
-        shootButton.style.bottom = '20%';
-        shootButton.style.width = '60px';
-        shootButton.style.height = '60px';
-        shootButton.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
-        shootButton.style.borderRadius = '50%';
-        shootButton.style.display = 'flex';
-        shootButton.style.justifyContent = 'center';
-        shootButton.style.alignItems = 'center';
-        shootButton.style.fontSize = '24px';
-        shootButton.innerHTML = '🎯';
-        document.body.appendChild(shootButton);
+        // Create shoot button
+        if (!document.getElementById('shootButton')) {
+            const shootButton = document.createElement('button');
+            shootButton.id = 'shootButton';
+            shootButton.innerHTML = '🎯';
+            document.body.appendChild(shootButton);
 
-        shootButton.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            this.shoot();
-        });
+            shootButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.shoot();
+            });
+        }
+    }
+
+    updatePlayerPosition() {
+        if (this.isMobile) {
+            // Smooth movement towards target position for mobile
+            const smoothing = 0.2;
+            this.player.x += (this.playerTarget.x - this.player.x) * smoothing;
+            this.player.y += (this.playerTarget.y - this.player.y) * smoothing;
+
+            // Keep player within canvas bounds
+            this.player.x = Math.max(0, Math.min(this.width - this.player.width, this.player.x));
+            this.player.y = Math.max(0, Math.min(this.height - this.player.height, this.player.y));
+        }
     }
 
     resetGame() {
@@ -907,8 +912,8 @@ class Game {
         this.boss = null;
         this.gameOver = false;
         this.player.lives = 3;
-        this.player.x = this.canvas.width / 2;
-        this.player.y = this.canvas.height - 50;
+        this.player.x = this.width / 2;
+        this.player.y = this.height - 50;
         this.lastHealthOrbSpawn = Date.now();
         this.lastSpikeOrbSpawn = Date.now();
         this.lastTargetSpawn = Date.now();
@@ -919,16 +924,16 @@ class Game {
         this.bossHealthElement.style.display = 'none';
         this.scoreElement.textContent = 'Score: 0';
         this.playerNameInput.value = '';
-
-        // Re-enable controls
-        if (this.isMobile) {
-            document.getElementById('mobileControls').style.opacity = '1';
-            document.getElementById('mobileControls').style.pointerEvents = 'auto';
-        }
+        
+        // Re-enable submit button
+        this.submitScoreButton.disabled = false;
 
         // Reset player state
         this.updateLivesDisplay();
         this.selectNewTarget();
+        
+        // Restart game loop
+        this.gameLoop();
     }
 
     createStarfield() {
